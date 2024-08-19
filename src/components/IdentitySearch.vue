@@ -181,6 +181,7 @@ label {
   display: block;
   margin-bottom: .4rem;
   color: #fff;
+  text-transform: capitalize;
 }
 
 select {

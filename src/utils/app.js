@@ -322,32 +322,24 @@ export async function getCiviContactWithQuery(queryObject) {
   return data;
 }
 
-import getCiviCurrentStudentsResponse from "@/assets/private/getCiviCurrentStudentsResponse.json";
-export async function getCiviCurrentStudents() {
-  // return await getCiviContactWithQuery(queryObject)
-  return await getCiviCurrentStudentsResponse.values;
-}
+// import getCiviCurrentStudentsResponse from "@/assets/private/getCiviCurrentStudentsResponse.json";
 
 export async function getIdentitiesFromCiviCurrentStudents() {
-  // const getCiviCurrentStudents = {
-  //     "select": [
-  //         "custom_child_info.First_Name",
-  //         "custom_child_info.Last_Name",
-  //         "custom_child_info.Campus_Assignment",
-  //         "custom_child_info.Grade",
-  //         "custom_child_info.House",
-  //         "id",
-  //     ],
-  //     "join": [
-  //         ["Custom_Child_Info AS custom_child_info", "LEFT"]
-  //     ],
-  //     "where": [
-  //         ["custom_child_info.HLS_Status", "CONTAINS", "Current Student"]
-  //     ]
-  // };
+  const getCiviCurrentStudents = {
+    select: [
+      "custom_child_info.First_Name",
+      "custom_child_info.Last_Name",
+      "custom_child_info.Campus_Assignment",
+      "custom_child_info.Grade",
+      "custom_child_info.House",
+      "id",
+    ],
+    join: [["Custom_Child_Info AS custom_child_info", "LEFT"]],
+    where: [["custom_child_info.HLS_Status", "CONTAINS", "Current Student"]],
+  };
 
-  // const civiContacts = await getCiviContactWithQuery(getCiviCurrentStudents);
-  const civiContacts = await getCiviCurrentStudentsResponse;
+  const civiContacts = await getCiviContactWithQuery(getCiviCurrentStudents);
+  // const civiContacts = await getCiviCurrentStudentsResponse;
   const identityMap = {};
 
   civiContacts.values.forEach((student) => {
@@ -383,16 +375,16 @@ export async function getIdentitiesFromCiviCurrentStudents() {
   return Object.values(identityMap);
 }
 
-import getCiviCurrentTeachersResponse from "@/assets/private/getCiviCurrentTeachersResponse.json";
+// import getCiviCurrentTeachersResponse from "@/assets/private/getCiviCurrentTeachersResponse.json";
 
 export async function getIdentitiesFromCiviCurrentTeachers() {
-  // const getCiviCurrentTeachers = {
-  //   select: ["id", "first_name", "last_name"],
-  //   where: [["Faculty_Info.Faculty_Status", "=", "2"]],
-  // };
+  const getCiviCurrentTeachers = {
+    select: ["id", "first_name", "last_name"],
+    where: [["Faculty_Info.Faculty_Status", "=", "2"]],
+  };
 
-  // const civiContacts = getCiviContactWithQuery(getCiviCurrentTeachers)
-  const civiContacts = getCiviCurrentTeachersResponse;
+  const civiContacts = getCiviContactWithQuery(getCiviCurrentTeachers);
+  // const civiContacts = getCiviCurrentTeachersResponse;
 
   const identityMap = {};
 
@@ -430,8 +422,8 @@ export async function getIdentitiesFromCiviCurrentTeachers() {
 export async function getIdentities() {
   var identities = [];
   identities = identities.concat(await getMongoCaptureLinkIdentities());
-  identities = identities.concat(await getIdentitiesFromCiviCurrentStudents());
-  identities = identities.concat(await getIdentitiesFromCiviCurrentTeachers());
+  // identities = identities.concat(await getIdentitiesFromCiviCurrentStudents());
+  // identities = identities.concat(await getIdentitiesFromCiviCurrentTeachers());
   return identities;
 }
 
@@ -455,10 +447,12 @@ export function getObjectArrayFilterObject(objectArray) {
   uniqueKeys.forEach((key) => {
     const values = objectArray.map((item) => item[key]);
     let uniqueValues = [...new Set(values)];
-    uniqueValues = uniqueValues.filter((value) => value !== null)
+    uniqueValues = uniqueValues.filter((value) => value !== null);
 
     if (uniqueValues.length < 50) {
-      if (uniqueValues.every((value) => typeof value === "string")) {
+      if (uniqueValues.every((value) => value === null)) {
+        return;
+      } else if (uniqueValues.every((value) => typeof value === "string")) {
         options[key] = uniqueValues.sort();
       } else if (uniqueValues.every((value) => typeof value === "number")) {
         options[key] = uniqueValues.sort((a, b) => a - b);
