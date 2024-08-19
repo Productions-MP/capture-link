@@ -13,6 +13,10 @@
                 <StyledButton v-if="!isSessionActive" @click="clearSession" text-color="#fff" button-color="#444">
                     Clear Session
                 </StyledButton>
+
+                <StyledButton v-if="!isSessionActive" @click="this.$emit('show-add-identity')" text-color="#fff" button-color="#444">
+                    Create Identity
+                </StyledButton>
             </div>
 
             <StyledButton @click="logOut()" text-color="#fff" button-color="#444">

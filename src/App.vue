@@ -1,16 +1,19 @@
 <template>
   <DialogLogin v-if="this.showLogIn" @gotMongoSession="handleGotMongoSession" />
 
+  <DialogAddIdentity v-if="this.showAddIdentity" @identity-created="this.showAddIdentity = false"
+    @hide-add-identity="this.showAddIdentity = false" />
+
   <div class="top-section">
     <identity-search :identities="identities" :filterObject="identitiesFilterObject"
       :isSessionActive="this.isSessionActive" @add-identity="addIdentityToActive"
-      @add-all-from-filter="addAllFromFilter"/>
+      @add-all-from-filter="addAllFromFilter" />
   </div>
 
   <div class="bottom-section">
     <session-manager :activeIdentities="activeIdentities" :isSessionActive="this.isSessionActive"
       @start-session="startSession" @end-session="endSession" @remove-identity="removeIdentityFromActive"
-      @clear-identities="clearIdentitiesFromActive" />
+      @clear-identities="clearIdentitiesFromActive" @show-add-identity="this.showAddIdentity = true" />
   </div>
 </template>
 
@@ -26,6 +29,7 @@ import {
   getObjectArrayFilterObject
 } from '@/utils/app'
 import DialogLogin from '@/components/DialogLogin.vue';
+import DialogAddIdentity from '@/components/DialogAddIdentity.vue';
 import IdentitySearch from "./components/IdentitySearch.vue";
 import SessionManager from "./components/SessionManager.vue";
 
@@ -34,6 +38,7 @@ export default {
   data() {
     return {
       showLogIn: !hasMongoSessionCookies(),
+      showAddIdentity: false,
       identities: [],
       activeIdentities: [],
       isSessionActive: false,
@@ -49,7 +54,8 @@ export default {
   components: {
     IdentitySearch,
     SessionManager,
-    DialogLogin
+    DialogLogin,
+    DialogAddIdentity
   },
   computed: {
     identitiesFilterObject() {

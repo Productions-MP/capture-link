@@ -21,6 +21,9 @@
 }
 
 .dialog {
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
     background-color: #333;
     color: #fff;
     border: 1px solid #444;
@@ -45,7 +48,6 @@ body {
 .dialog input {
     width: 100%;
     padding: 0.7rem;
-    margin: 0.5rem 0;
     border: 1px solid #444;
     border-radius: 0.5rem;
     background-color: #222;
@@ -55,7 +57,6 @@ body {
 .dialog button {
     width: 100%;
     padding: 0.7rem;
-    margin-top: 1rem;
     background-color: #444;
     color: #fff;
     border: none;
