@@ -1,7 +1,8 @@
 <template>
     <div class="session-manager">
         <div class="control-panel">
-            <StyledButton v-if="!isSessionActive" @click="startSession" text-color="#fff" button-color="#39B357">
+            <div>
+                <StyledButton v-if="!isSessionActive" @click="startSession" text-color="#fff" button-color="#39B357">
                 Start Session
             </StyledButton>
 
@@ -12,9 +13,11 @@
             <StyledButton v-if="!isSessionActive" @click="clearSession" text-color="#fff" button-color="#444">
                 Clear Session
             </StyledButton>
+            </div>
 
-            <StyledButton @click="clearMongoSessionCookies()" text-color="#fff" button-color="#444">
-                Clear Cookies
+
+            <StyledButton @click="logOut()" text-color="#fff" button-color="#444">
+                Log Out
             </StyledButton>
         </div>
         <IdentityCardPane>
@@ -48,7 +51,6 @@ export default {
         StyledButton
     },
     methods: {
-        clearMongoSessionCookies,
         startSession() {
             this.$emit('start-session');
         },
@@ -57,6 +59,10 @@ export default {
         },
         clearSession() {
             this.$emit('clear-identities');
+        },
+        logOut() {
+            clearMongoSessionCookies()
+            window.location.reload()
         }
     }
 }
@@ -72,6 +78,14 @@ export default {
 }
 
 .control-panel {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.control-panel > div {
     width: 100%;
     display: flex;
     flex-direction: column;

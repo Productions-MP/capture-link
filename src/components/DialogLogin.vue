@@ -18,11 +18,11 @@ export default {
         StyledButton
     },
     methods: {
-        handleLogInClick() {
+        async handleLogInClick() {
             const username = this.$refs.username.value
             const password = this.$refs.password.value
-            this.showDialog = !getMongoSessionTokens(username, password)
-            if (!this.showDialog) this.$emit('gotMongoSession')
+            const isSuccess = await getMongoSessionTokens(username, password)
+            if (isSuccess) this.$emit('gotMongoSession')
         }
     },
 };
