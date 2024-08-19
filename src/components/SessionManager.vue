@@ -57,9 +57,6 @@ export default {
             deep: true,
         },
     },
-    mounted() {
-        this.$nextTick(() => this.scrollToBottom());
-    },
     methods: {
         startSession() {
             this.$emit('start-session');

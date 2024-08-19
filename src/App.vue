@@ -120,7 +120,7 @@ export default {
 
 <style>
 #app {
-  height: 97vh;
+  height: 100vh;
   font-family: sans-serif;
   display: flex;
   flex-direction: column;
