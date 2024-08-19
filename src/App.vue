@@ -1,13 +1,16 @@
 <template>
   <DialogLogin v-if="this.showLogIn" @gotMongoSession="handleGotMongoSession" />
+
   <div class="top-section">
     <identity-search :identities="identities" :filterObject="identitiesFilterObject"
-      :isSessionActive="this.isSessionActive" @add-identity="addIdentityToActive" />
+      :isSessionActive="this.isSessionActive" @add-identity="addIdentityToActive"
+      @add-all-from-filter="addAllFromFilter"/>
   </div>
+
   <div class="bottom-section">
     <session-manager :activeIdentities="activeIdentities" :isSessionActive="this.isSessionActive"
       @start-session="startSession" @end-session="endSession" @remove-identity="removeIdentityFromActive"
-      @clear-identities="clearIdentitesFromActive" />
+      @clear-identities="clearIdentitiesFromActive" />
   </div>
 </template>
 
@@ -30,7 +33,7 @@ import SessionManager from "./components/SessionManager.vue";
 export default {
   data() {
     return {
-      showLogIn:!hasMongoSessionCookies(), 
+      showLogIn: !hasMongoSessionCookies(),
       identities: [],
       activeIdentities: [],
       isSessionActive: false,
@@ -62,22 +65,39 @@ export default {
     },
     addIdentityToActive(identity) {
       if (!this.isSessionActive) {
-        if (!this.activeIdentities.some((aI) => {
-          return aI.firstName === identity.firstName && aI.lastName === identity.lastName
-        })) {
-          this.activeIdentities.push(identity);
+        const index = this.identities.findIndex(
+          (aI) => aI.firstName === identity.firstName && aI.lastName === identity.lastName
+        );
+        if (index !== -1) {
+          this.activeIdentities.push(this.identities.splice(index, 1)[0]);
         }
       }
     },
     removeIdentityFromActive(identity) {
       if (!this.isSessionActive) {
-        this.activeIdentities = this.activeIdentities.filter(
-          (aI) => aI.firstName + aI.lastName !== identity.firstName + identity.lastName
+        const index = this.activeIdentities.findIndex(
+          (aI) => aI.firstName === identity.firstName && aI.lastName === identity.lastName
         );
+        if (index !== -1) {
+          this.identities.push(this.activeIdentities.splice(index, 1)[0]);
+        }
       }
     },
-    clearIdentitesFromActive() {
+    addAllFromFilter(filteredIdentities) {
       if (!this.isSessionActive) {
+        filteredIdentities.forEach(identity => {
+          const index = this.identities.findIndex(
+            (aI) => aI.firstName === identity.firstName && aI.lastName === identity.lastName
+          );
+          if (index !== -1) {
+            this.activeIdentities.push(this.identities.splice(index, 1)[0]);
+          }
+        });
+      }
+    },
+    clearIdentitiesFromActive() {
+      if (!this.isSessionActive) {
+        this.identities.push(...this.activeIdentities);
         this.activeIdentities = [];
       }
     },
@@ -100,7 +120,7 @@ export default {
 
 <style>
 #app {
-  height: 100vh;
+  height: 97vh;
   font-family: sans-serif;
   display: flex;
   flex-direction: column;

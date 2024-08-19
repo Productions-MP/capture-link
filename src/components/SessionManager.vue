@@ -3,24 +3,23 @@
         <div class="control-panel">
             <div>
                 <StyledButton v-if="!isSessionActive" @click="startSession" text-color="#fff" button-color="#39B357">
-                Start Session
-            </StyledButton>
+                    Start Session
+                </StyledButton>
 
-            <StyledButton v-if="isSessionActive" @click="endSession" text-color="#fff" button-color="#ff6644">
-                End Session
-            </StyledButton>
+                <StyledButton v-if="isSessionActive" @click="endSession" text-color="#fff" button-color="#ff6644">
+                    End Session
+                </StyledButton>
 
-            <StyledButton v-if="!isSessionActive" @click="clearSession" text-color="#fff" button-color="#444">
-                Clear Session
-            </StyledButton>
+                <StyledButton v-if="!isSessionActive" @click="clearSession" text-color="#fff" button-color="#444">
+                    Clear Session
+                </StyledButton>
             </div>
-
 
             <StyledButton @click="logOut()" text-color="#fff" button-color="#444">
                 Log Out
             </StyledButton>
         </div>
-        <IdentityCardPane>
+        <IdentityCardPane ref="identityPane">
             <IdentityCard v-for="identity in activeIdentities" :key="identity.firstName + identity.lastName"
                 :identity="identity" :image="require('@/assets/minus-circle.svg')" :addIdentity="false"
                 @remove-identity="$emit('remove-identity', $event)" />
@@ -29,10 +28,10 @@
 </template>
 
 <script>
-import { clearMongoSessionCookies } from '@/utils/app'
+import { clearMongoSessionCookies } from '@/utils/app';
 import IdentityCard from './IdentityCard.vue';
-import IdentityCardPane from './IdentityCardPane.vue'
-import StyledButton from './StyledButton.vue'
+import IdentityCardPane from './IdentityCardPane.vue';
+import StyledButton from './StyledButton.vue';
 
 export default {
     props: {
@@ -42,13 +41,24 @@ export default {
         },
         isSessionActive: {
             type: Boolean,
-            required: true
-        }
+            required: true,
+        },
     },
     components: {
         IdentityCard,
         IdentityCardPane,
-        StyledButton
+        StyledButton,
+    },
+    watch: {
+        activeIdentities: {
+            handler() {
+                this.$nextTick(() => this.scrollToBottom());
+            },
+            deep: true,
+        },
+    },
+    mounted() {
+        this.$nextTick(() => this.scrollToBottom());
     },
     methods: {
         startSession() {
@@ -61,11 +71,17 @@ export default {
             this.$emit('clear-identities');
         },
         logOut() {
-            clearMongoSessionCookies()
-            window.location.reload()
-        }
-    }
-}
+            clearMongoSessionCookies();
+            window.location.reload();
+        },
+        scrollToBottom() {
+            const pane = this.$refs.identityPane.$refs.list;
+            if (pane) {
+                pane.scrollTop = pane.scrollHeight;
+            }
+        },
+    },
+};
 </script>
 
 <style scoped>
@@ -74,7 +90,7 @@ export default {
     display: grid;
     grid-template-columns: 1fr 4fr;
     align-items: start;
-    gap: .7rem
+    gap: .7rem;
 }
 
 .control-panel {

@@ -16,14 +16,16 @@
           </div>
         </div>
 
-        <div class="filters">
           <div class="rocker-switch">
             <input type="radio" id="a-z" :value="1" v-model="sortDirection">
             <label class="left" for="a-z">a - z</label>
             <input type="radio" id="z-a" :value="-1" v-model="sortDirection">
             <label class="right" for="z-a">z - a</label>
           </div>
-        </div>
+
+          <StyledButton @click="addAllFromFilter" text-color="#fff" button-color="#444">
+            Add All To Session
+          </StyledButton>
       </div>
 
       <IdentityCardPane>
@@ -39,6 +41,7 @@
 <script>
 import IdentityCard from './IdentityCard.vue';
 import IdentityCardPane from './IdentityCardPane.vue'
+import StyledButton from './StyledButton.vue';
 
 import {
   getCampusString,
@@ -63,7 +66,8 @@ export default {
   },
   components: {
     IdentityCard,
-    IdentityCardPane
+    IdentityCardPane,
+    StyledButton
   },
   data() {
     return {
@@ -126,6 +130,9 @@ export default {
         default:
           return option;
       }
+    },
+    addAllFromFilter() {
+      this.$emit('add-all-from-filter', this.filteredIdentities);
     }
   }
 };

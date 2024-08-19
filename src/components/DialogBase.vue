@@ -6,17 +6,6 @@
     </div>
 </template>
 
-<script>
-export default {
-    props: {
-        show: {
-            type: Boolean,
-            required: true,
-        },
-    },
-};
-</script>
-
 <style scoped>
 .backdrop {
     position: fixed;
