@@ -4,9 +4,36 @@
       <h2>Add Identity</h2>
       <input v-model="identity.firstName" placeholder="First Name" required />
       <input v-model="identity.lastName" placeholder="Last Name" required />
-      <input v-model="identity.campus" placeholder="Campus (Optional)" />
-      <input v-model="identity.grade" placeholder="Grade (Optional)" />
-      <input v-model="identity.house" placeholder="House (Optional)" />
+
+      <div>
+        <label for="campus">Campus (Optional)</label>
+        <select id="campus" v-model="identity.campus">
+          <option></option>
+          <option v-for="option in filterObject.campus" :key="option" :value="option">
+            {{ getCampusString(option) }}
+          </option>
+        </select>
+      </div>
+
+      <div>
+        <label for="grade">Grade (Optional)</label>
+        <select id="grade" v-model="identity.grade">
+          <option></option>
+          <option v-for="option in filterObject.grade" :key="option" :value="option">
+            {{ getGradeString(option) }}
+          </option>
+        </select>
+      </div>
+
+      <div>
+        <label for="house">House (Optional)</label>
+        <select id="house" v-model="identity.house">
+          <option></option>
+          <option v-for="option in filterObject.house" :key="option" :value="option">
+            {{ getHouseString(option) }}
+          </option>
+        </select>
+      </div>
     </div>
 
     <div class="input-section">
@@ -18,8 +45,10 @@
     </div>
 
     <div class="input-section">
-      <StyledButton v-if="this.identity.firstName !== '' && this.identity.lastName !== ''" @click="submitIdentityForm" text-color="#fff" button-color="#39B357">Submit</StyledButton>
-      <StyledButton v-else @click="this.$emit('hide-add-identity')" text-color="#fff" button-color="#ff6644">Close</StyledButton>
+      <StyledButton v-if="this.identity.firstName !== '' && this.identity.lastName !== ''" @click="submitIdentityForm"
+        text-color="#fff" button-color="#39B357">Submit</StyledButton>
+      <StyledButton v-else @click="this.$emit('hide-add-identity')" text-color="#fff" button-color="#ff6644">Close
+      </StyledButton>
     </div>
   </DialogBase>
 </template>
@@ -27,9 +56,15 @@
 <script>
 import DialogBase from './DialogBase.vue';
 import StyledButton from './StyledButton.vue';
-import { createMongoCaptureLinkIdentity } from '@/utils/app';
+import { createMongoCaptureLinkIdentity, getCampusString, getGradeString, getHouseString } from '@/utils/app';
 
 export default {
+  props: {
+    filterObject: {
+      type: Object,
+      required: true
+    }
+  },
   components: {
     DialogBase,
     StyledButton
@@ -47,6 +82,9 @@ export default {
     };
   },
   methods: {
+    getCampusString,
+    getGradeString,
+    getHouseString,
     addContactEmail() {
       this.identity.contactIds.push(null);
     },
@@ -87,6 +125,7 @@ export default {
   },
 };
 </script>
+
 
 <style scoped>
 .input-section {

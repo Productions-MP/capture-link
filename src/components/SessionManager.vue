@@ -46,7 +46,7 @@ export default {
         isSessionActive: {
             type: Boolean,
             required: true,
-        },
+        }
     },
     components: {
         IdentityCard,

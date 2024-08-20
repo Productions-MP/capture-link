@@ -1,7 +1,7 @@
 <template>
   <DialogLogin v-if="this.showLogIn" @gotMongoSession="handleGotMongoSession" />
 
-  <DialogAddIdentity v-if="this.showAddIdentity" @identity-created="this.showAddIdentity = false"
+  <DialogAddIdentity v-if="this.showAddIdentity" :filterObject="this.identitiesFilterObject" @identity-created="this.showAddIdentity = false"
     @hide-add-identity="this.showAddIdentity = false" />
 
   <div class="top-section">

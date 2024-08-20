@@ -67,4 +67,22 @@ body {
 .dialog button:hover {
     background-color: #555;
 }
+
+label {
+  display: block;
+  margin-bottom: .4rem;
+  color: #ddd;
+  text-transform: capitalize;
+  text-align: left;
+  font-size: .9rem;
+}
+
+select {
+  width: 100%;
+  border: none;
+  border-radius: .5rem;
+  background-color: #444;
+  color: #fff;
+  padding: .4rem;
+}
 </style>

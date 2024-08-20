@@ -511,7 +511,7 @@ export function getGradeString(grade) {
     case 12:
       return "Twelfth Grade";
     default:
-      return "Unknown Grade";
+      return `${grade}`;
   }
 }
 
