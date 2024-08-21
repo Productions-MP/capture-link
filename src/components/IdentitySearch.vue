@@ -79,7 +79,7 @@ export default {
   computed: {
     filteredIdentities() {
       const filtered = this.identities.filter((identity) => {
-        const matchesQuery = `${identity.firstName}${identity.lastName}`
+        const matchesQuery = `${identity.firstName} ${identity.lastName}`
           .toLowerCase()
           .includes(this.searchQuery.toLowerCase());
 
