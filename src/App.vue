@@ -11,7 +11,7 @@
   </div>
 
   <div class="bottom-section">
-    <session-manager :activeIdentities="activeIdentities" :isSessionActive="this.isSessionActive"
+    <session-manager :activeIdentities="activeIdentities" :isSessionActive="this.isSessionActive" :isDisabled="this.isDisabled"
       @start-session="startSession" @end-session="endSession" @remove-identity="removeIdentityFromActive"
       @clear-identities="clearIdentitiesFromActive" @show-add-identity="this.showAddIdentity = true" />
   </div>
@@ -42,6 +42,7 @@ export default {
       identities: [],
       activeIdentities: [],
       isSessionActive: false,
+      isDisabled: false,
       sessionId: null,
     };
   },
@@ -109,15 +110,21 @@ export default {
     },
     async startSession() {
       if (this.activeIdentities.length > 0) {
+        this.isDisabled = true
         this.sessionId = await postMongoCaptureLinkSessionStart(this.activeIdentities)
-        if (this.sessionId) this.isSessionActive = true
+        if (this.sessionId) {
+          this.isSessionActive = true
+          this.isDisabled = false
+        }
       }
     },
     async endSession() {
+      this.isDisabled = true
       const isSuccess = await postMongoCaptureLinkSessionEnd(this.sessionId)
       if (isSuccess) {
         this.sessionId = null
         this.isSessionActive = false
+        this.isDisabled = false
       }
     },
     handleIdentityCreated(identity) {
