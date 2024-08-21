@@ -17,6 +17,10 @@
                 <StyledButton v-if="!isSessionActive" @click="this.$emit('show-add-identity')" text-color="#fff" button-color="#444">
                     Create Identity
                 </StyledButton>
+
+                <StyledButton v-if="!isSessionActive" @click="handleRefresh()" text-color="#fff" button-color="#444">
+                    Refresh Page
+                </StyledButton>
             </div>
 
             <StyledButton @click="logOut()" text-color="#fff" button-color="#444">
@@ -74,6 +78,9 @@ export default {
         logOut() {
             clearMongoSessionCookies();
             window.location.reload();
+        },
+        handleRefresh() {
+            window.location.reload()
         },
         scrollToBottom() {
             const pane = this.$refs.identityPane.$refs.list;
