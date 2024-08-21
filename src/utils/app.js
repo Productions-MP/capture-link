@@ -186,46 +186,67 @@ export async function createMongoCaptureLinkIdentity(
 
 export async function getMongoCaptureLinkIdentities() {
   if (hasMongoSessionAccessTokenCookie()) {
-    const response = await fetch(
-      `${process.env.VUE_APP_MONGO_DATA_ENDPOINT}/find`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Request-Headers": "*",
-          Authorization: `Bearer ${getMongoSessionAccessTokenCookie()}`,
-        },
-        body: JSON.stringify({
-          dataSource: "capture-link",
-          database: "capture-link",
-          collection: "identities",
-          filter: {},
-        }),
+    const allIdentities = [];
+    let skip = 0;
+    const limit = 1000; // Adjust if needed based on API constraints
+    let hasMore = true;
+
+    while (hasMore) {
+      const response = await fetch(
+        `${process.env.VUE_APP_MONGO_DATA_ENDPOINT}/find`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Request-Headers": "*",
+            "Authorization": `Bearer ${getMongoSessionAccessTokenCookie()}`,
+          },
+          body: JSON.stringify({
+            dataSource: "capture-link",
+            database: "capture-link",
+            collection: "identities",
+            filter: {},
+            skip: skip,
+            limit: limit,
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const responseObject = await response.json();
+        const identities = responseObject.documents.map((el) => {
+          return {
+            firstName: el.first_name,
+            lastName: el.last_name,
+            campus: el.campus,
+            grade: el.grade,
+            house: el.house,
+            contactIds: el.contact_ids,
+          };
+        });
+
+        if (identities.length < limit) {
+          hasMore = false; // No more records to fetch
+        }
+
+        allIdentities.push(...identities);
+        skip += limit; // Move to the next page
+      } else {
+        // Handle error response
+        console.error("Failed to fetch data:", response.status, response.statusText);
+        hasMore = false; // Exit the loop on error
       }
-    );
-
-    if (response.ok) {
-      const responseObject = await response.json();
-      const identities = responseObject.documents.map((el) => {
-        return {
-          firstName: el.first_name,
-          lastName: el.last_name,
-          campus: el.campus,
-          grade: el.grade,
-          house: el.house,
-          contactIds: el.contact_ids,
-        };
-      });
-
-      return identities;
     }
+
+    return allIdentities;
   } else if (hasMongoSessionRefreshTokenCookie()) {
     if (await refreshMongoSessionAccessToken()) {
-      getMongoCaptureLinkIdentities();
+      return getMongoCaptureLinkIdentities(); // Retry fetching after refreshing the token
     }
   }
   return [];
 }
+
 /**
  * create Session record without end datetime in MongoDB Cloud database
  * @param {Array} activeIdentities
