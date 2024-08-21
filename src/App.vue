@@ -1,7 +1,7 @@
 <template>
   <DialogLogin v-if="this.showLogIn" @gotMongoSession="handleGotMongoSession" />
 
-  <DialogAddIdentity v-if="this.showAddIdentity" :filterObject="this.identitiesFilterObject" @identity-created="this.showAddIdentity = false"
+  <DialogAddIdentity v-if="this.showAddIdentity" :filterObject="this.identitiesFilterObject" @identity-created="handleIdentityCreated"
     @hide-add-identity="this.showAddIdentity = false" />
 
   <div class="top-section">
@@ -120,6 +120,10 @@ export default {
         this.isSessionActive = false
       }
     },
+    handleIdentityCreated(identity) {
+      this.activeIdentities.push(identity)
+      this.showAddIdentity = false
+    }
   },
 };
 </script>

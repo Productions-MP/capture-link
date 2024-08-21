@@ -46,7 +46,7 @@
 
     <div class="input-section">
       <StyledButton v-if="this.identity.firstName !== '' && this.identity.lastName !== ''" @click="submitIdentityForm"
-        text-color="#fff" button-color="#39B357">Submit</StyledButton>
+        text-color="#fff" button-color="#39B357" :disabled="loading">{{ loading ? 'Submitting...' : 'Submit' }}</StyledButton>
       <StyledButton v-else @click="this.$emit('hide-add-identity')" text-color="#fff" button-color="#ff6644">Close
       </StyledButton>
     </div>
@@ -79,6 +79,7 @@ export default {
         house: null,
         contactIds: [null],
       },
+      loading: false
     };
   },
   methods: {
@@ -92,6 +93,7 @@ export default {
       this.identity.contactIds.splice(index, 1);
     },
     async submitIdentityForm() {
+      this.loading = true
       if (!this.identity.firstName || !this.identity.lastName) {
         alert('First name and last name are required');
         return;
@@ -110,6 +112,8 @@ export default {
         this.$emit('identity-created', this.identity)
         this.closeDialog()
       }
+
+      this.loading = false
     },
     closeDialog() {
       this.identity = {

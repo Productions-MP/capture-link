@@ -468,7 +468,7 @@ export function getObjectArrayFilterObject(objectArray) {
   uniqueKeys.forEach((key) => {
     const values = objectArray.map((item) => item[key]);
     let uniqueValues = [...new Set(values)];
-    uniqueValues = uniqueValues.filter((value) => value !== null);
+    uniqueValues = uniqueValues.filter((value) => value !== null && value !== "");
 
     if (uniqueValues.length < 50) {
       if (uniqueValues.every((value) => value === null)) {
