@@ -239,7 +239,7 @@ export async function getMongoCaptureLinkIdentities() {
     return allIdentities;
   } else if (hasMongoSessionRefreshTokenCookie()) {
     if (await refreshMongoSessionAccessToken()) {
-      return await getMongoCaptureLinkIdentities();
+      return getMongoCaptureLinkIdentities();
     }
   }
   return [];
@@ -280,7 +280,7 @@ export async function postMongoCaptureLinkSessionStart(activeIdentities) {
     }
   } else if (hasMongoSessionRefreshTokenCookie()) {
     if (await refreshMongoSessionAccessToken()) {
-      return await postMongoCaptureLinkSessionStart(activeIdentities);
+      return postMongoCaptureLinkSessionStart(activeIdentities);
     }
   }
 }
@@ -316,7 +316,7 @@ export async function postMongoCaptureLinkSessionEnd(objectId) {
     }
   } else if (hasMongoSessionRefreshTokenCookie()) {
     if (await refreshMongoSessionAccessToken()) {
-      return await postMongoCaptureLinkSessionEnd(objectId);
+      return postMongoCaptureLinkSessionEnd(objectId);
     }
   }
 }
