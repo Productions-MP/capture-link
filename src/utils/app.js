@@ -93,36 +93,36 @@ export async function refreshMongoSessionAccessToken() {
   } else return false;
 }
 
-export async function getMongoXCiviAuth() {
-  if (hasMongoSessionAccessTokenCookie()) {
-    const response = await fetch(
-      `${process.env.VUE_APP_MONGO_DATA_ENDPOINT}/findOne`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Access-Control-Request-Headers": "*",
-          Authorization: `Bearer ${getMongoSessionAccessTokenCookie()}`,
-        },
-        body: JSON.stringify({
-          dataSource: "capture-link",
-          database: "capture-link",
-          collection: "env",
-          filter: { key: "X-Civi-Auth" },
-        }),
-      }
-    );
+// export async function getMongoXCiviAuth() {
+//   if (hasMongoSessionAccessTokenCookie()) {
+//     const response = await fetch(
+//       `${process.env.VUE_APP_MONGO_DATA_ENDPOINT}/findOne`,
+//       {
+//         method: "POST",
+//         headers: {
+//           "Content-Type": "application/json",
+//           "Access-Control-Request-Headers": "*",
+//           Authorization: `Bearer ${getMongoSessionAccessTokenCookie()}`,
+//         },
+//         body: JSON.stringify({
+//           dataSource: "capture-link",
+//           database: "capture-link",
+//           collection: "env",
+//           filter: { key: "X-Civi-Auth" },
+//         }),
+//       }
+//     );
 
-    if (response.ok) {
-      const responseObject = await response.json();
-      return responseObject.document.value;
-    }
-  } else if (hasMongoSessionRefreshTokenCookie()) {
-    if (await refreshMongoSessionAccessToken()) {
-      getMongoXCiviAuth();
-    }
-  }
-}
+//     if (response.ok) {
+//       const responseObject = await response.json();
+//       return responseObject.document.value;
+//     }
+//   } else if (hasMongoSessionRefreshTokenCookie()) {
+//     if (await refreshMongoSessionAccessToken()) {
+//       getMongoXCiviAuth();
+//     }
+//   }
+// }
 
 /**
  * create Identity record in MongoDB Cloud database
@@ -230,6 +230,8 @@ export async function getMongoCaptureLinkIdentities() {
         }
 
         allIdentities.push(...identities);
+        skip += limit;
+
       } else {
         console.error("Failed to fetch data:", response.status, response.statusText);
         hasMore = false;
@@ -239,7 +241,7 @@ export async function getMongoCaptureLinkIdentities() {
     return allIdentities;
   } else if (hasMongoSessionRefreshTokenCookie()) {
     if (await refreshMongoSessionAccessToken()) {
-      return getMongoCaptureLinkIdentities();
+      return await getMongoCaptureLinkIdentities();
     }
   }
   return [];
@@ -280,7 +282,7 @@ export async function postMongoCaptureLinkSessionStart(activeIdentities) {
     }
   } else if (hasMongoSessionRefreshTokenCookie()) {
     if (await refreshMongoSessionAccessToken()) {
-      return postMongoCaptureLinkSessionStart(activeIdentities);
+      return await postMongoCaptureLinkSessionStart(activeIdentities);
     }
   }
 }
@@ -316,7 +318,7 @@ export async function postMongoCaptureLinkSessionEnd(objectId) {
     }
   } else if (hasMongoSessionRefreshTokenCookie()) {
     if (await refreshMongoSessionAccessToken()) {
-      return postMongoCaptureLinkSessionEnd(objectId);
+      return await postMongoCaptureLinkSessionEnd(objectId);
     }
   }
 }
