@@ -112,7 +112,7 @@ export default {
       if (this.activeIdentities.length > 0) {
         this.isDisabled = true
         this.sessionId = await postMongoCaptureLinkSessionStart(this.activeIdentities)
-        if (this.sessionId) {
+        if (this.sessionId !== null) {
           this.isSessionActive = true
           this.isDisabled = false
         }
