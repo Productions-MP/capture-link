@@ -172,15 +172,16 @@ export async function createMongoCaptureLinkIdentity(
     }
     return false;
   } else if (hasMongoSessionRefreshTokenCookie()) {
-    refreshMongoSessionAccessToken();
-    createMongoCaptureLinkIdentity(
-      firstName,
-      lastName,
-      campus,
-      grade,
-      house,
-      contactIds
-    );
+    if (await refreshMongoSessionAccessToken()) {
+      return await createMongoCaptureLinkIdentity(
+        firstName,
+        lastName,
+        campus,
+        grade,
+        house,
+        contactIds
+      );
+    }
   }
 }
 
@@ -199,7 +200,7 @@ export async function getMongoCaptureLinkIdentities() {
           headers: {
             "Content-Type": "application/json",
             "Access-Control-Request-Headers": "*",
-            "Authorization": `Bearer ${getMongoSessionAccessTokenCookie()}`,
+            Authorization: `Bearer ${getMongoSessionAccessTokenCookie()}`,
           },
           body: JSON.stringify({
             dataSource: "capture-link",
@@ -231,9 +232,12 @@ export async function getMongoCaptureLinkIdentities() {
 
         allIdentities.push(...identities);
         skip += limit;
-
       } else {
-        console.error("Failed to fetch data:", response.status, response.statusText);
+        console.error(
+          "Failed to fetch data:",
+          response.status,
+          response.statusText
+        );
         hasMore = false;
       }
     }
@@ -466,7 +470,9 @@ export function getObjectArrayFilterObject(objectArray) {
   uniqueKeys.forEach((key) => {
     const values = objectArray.map((item) => item[key]);
     let uniqueValues = [...new Set(values)];
-    uniqueValues = uniqueValues.filter((value) => value !== null && value !== "");
+    uniqueValues = uniqueValues.filter(
+      (value) => value !== null && value !== ""
+    );
 
     if (uniqueValues.length < 50) {
       if (uniqueValues.every((value) => value === null)) {
