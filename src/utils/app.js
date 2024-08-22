@@ -188,7 +188,7 @@ export async function getMongoCaptureLinkIdentities() {
   if (hasMongoSessionAccessTokenCookie()) {
     const allIdentities = [];
     let skip = 0;
-    const limit = 1000; // Adjust if needed based on API constraints
+    const limit = 1000;
     let hasMore = true;
 
     while (hasMore) {
@@ -226,22 +226,20 @@ export async function getMongoCaptureLinkIdentities() {
         });
 
         if (identities.length < limit) {
-          hasMore = false; // No more records to fetch
+          hasMore = false;
         }
 
         allIdentities.push(...identities);
-        skip += limit; // Move to the next page
       } else {
-        // Handle error response
         console.error("Failed to fetch data:", response.status, response.statusText);
-        hasMore = false; // Exit the loop on error
+        hasMore = false;
       }
     }
 
     return allIdentities;
   } else if (hasMongoSessionRefreshTokenCookie()) {
     if (await refreshMongoSessionAccessToken()) {
-      return getMongoCaptureLinkIdentities(); // Retry fetching after refreshing the token
+      return await getMongoCaptureLinkIdentities();
     }
   }
   return [];
@@ -282,7 +280,7 @@ export async function postMongoCaptureLinkSessionStart(activeIdentities) {
     }
   } else if (hasMongoSessionRefreshTokenCookie()) {
     if (await refreshMongoSessionAccessToken()) {
-      postMongoCaptureLinkSessionStart(activeIdentities);
+      return await postMongoCaptureLinkSessionStart(activeIdentities);
     }
   }
 }
@@ -318,126 +316,124 @@ export async function postMongoCaptureLinkSessionEnd(objectId) {
     }
   } else if (hasMongoSessionRefreshTokenCookie()) {
     if (await refreshMongoSessionAccessToken()) {
-      postMongoCaptureLinkSessionEnd(objectId);
+      return await postMongoCaptureLinkSessionEnd(objectId);
     }
   }
 }
 
 // CiviCRM CRUD
-export async function getCiviContactWithQuery(queryObject) {
-  const response = await fetch(
-    `${process.env.VUE_APP_CIVI_GET_CONTACT}?params=${encodeURI(
-      JSON.stringify(queryObject)
-    )}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-        "X-Requested-With": "XMLHttpRequest",
-        "X-Civi-Auth": `Bearer ${await getMongoXCiviAuth()}`,
-      },
-    }
-  );
-  const data = await response.json();
-  return data;
-}
+// I could not get CORS figured out with CiviCRM in a timely manner, so I am using
+// a python script to query CiviCRM contacts and create identities in MongoDB.
 
-// import getCiviCurrentStudentsResponse from "@/assets/private/getCiviCurrentStudentsResponse.json";
+// export async function getCiviContactWithQuery(queryObject) {
+//   const response = await fetch(
+//     `${process.env.VUE_APP_CIVI_GET_CONTACT}?params=${encodeURI(
+//       JSON.stringify(queryObject)
+//     )}`,
+//     {
+//       method: "POST",
+//       headers: {
+//         "Content-Type": "application/json",
+//         "Access-Control-Allow-Origin": "*",
+//         "X-Requested-With": "XMLHttpRequest",
+//         "X-Civi-Auth": `Bearer ${await getMongoXCiviAuth()}`,
+//       },
+//     }
+//   );
+//   const data = await response.json();
+//   return data;
+// }
 
-export async function getIdentitiesFromCiviCurrentStudents() {
-  const getCiviCurrentStudents = {
-    select: [
-      "custom_child_info.First_Name",
-      "custom_child_info.Last_Name",
-      "custom_child_info.Campus_Assignment",
-      "custom_child_info.Grade",
-      "custom_child_info.House",
-      "id",
-    ],
-    join: [["Custom_Child_Info AS custom_child_info", "LEFT"]],
-    where: [["custom_child_info.HLS_Status", "CONTAINS", "Current Student"]],
-  };
+// export async function getIdentitiesFromCiviCurrentStudents() {
+//   const getCiviCurrentStudents = {
+//     select: [
+//       "custom_child_info.First_Name",
+//       "custom_child_info.Last_Name",
+//       "custom_child_info.Campus_Assignment",
+//       "custom_child_info.Grade",
+//       "custom_child_info.House",
+//       "id",
+//     ],
+//     join: [["Custom_Child_Info AS custom_child_info", "LEFT"]],
+//     where: [["custom_child_info.HLS_Status", "CONTAINS", "Current Student"]],
+//   };
 
-  const civiContacts = await getCiviContactWithQuery(getCiviCurrentStudents);
-  // const civiContacts = await getCiviCurrentStudentsResponse;
-  const identityMap = {};
+//   const civiContacts = await getCiviContactWithQuery(getCiviCurrentStudents);
 
-  civiContacts.values.forEach((student) => {
-    const {
-      "custom_child_info.First_Name": firstName,
-      "custom_child_info.Last_Name": lastName,
-      "custom_child_info.Campus_Assignment": campus,
-      "custom_child_info.Grade": grade,
-      "custom_child_info.House": house,
-      id: contactIds,
-    } = student;
+//   const identityMap = {};
 
-    if (!firstName || !lastName) {
-      return;
-    }
+//   civiContacts.values.forEach((student) => {
+//     const {
+//       "custom_child_info.First_Name": firstName,
+//       "custom_child_info.Last_Name": lastName,
+//       "custom_child_info.Campus_Assignment": campus,
+//       "custom_child_info.Grade": grade,
+//       "custom_child_info.House": house,
+//       id: contactIds,
+//     } = student;
 
-    const key = `${firstName}${lastName}${campus}${grade}`;
+//     if (!firstName || !lastName) {
+//       return;
+//     }
 
-    if (!identityMap[key]) {
-      identityMap[key] = {
-        firstName,
-        lastName,
-        campus,
-        grade,
-        house: house !== "" ? house : null,
-        contactIds: [contactIds],
-      };
-    } else {
-      identityMap[key].contactIds.push(contactIds);
-    }
-  });
+//     const key = `${firstName}${lastName}${campus}${grade}`;
 
-  return Object.values(identityMap);
-}
+//     if (!identityMap[key]) {
+//       identityMap[key] = {
+//         firstName,
+//         lastName,
+//         campus,
+//         grade,
+//         house: house !== "" ? house : null,
+//         contactIds: [contactIds],
+//       };
+//     } else {
+//       identityMap[key].contactIds.push(contactIds);
+//     }
+//   });
 
-// import getCiviCurrentTeachersResponse from "@/assets/private/getCiviCurrentTeachersResponse.json";
+//   return Object.values(identityMap);
+// }
 
-export async function getIdentitiesFromCiviCurrentTeachers() {
-  const getCiviCurrentTeachers = {
-    select: ["id", "first_name", "last_name"],
-    where: [["Faculty_Info.Faculty_Status", "=", "2"]],
-  };
+// export async function getIdentitiesFromCiviCurrentTeachers() {
+//   const getCiviCurrentTeachers = {
+//     select: ["id", "first_name", "last_name"],
+//     where: [["Faculty_Info.Faculty_Status", "=", "2"]],
+//   };
 
-  const civiContacts = getCiviContactWithQuery(getCiviCurrentTeachers);
-  // const civiContacts = getCiviCurrentTeachersResponse;
+//   const civiContacts = getCiviContactWithQuery(getCiviCurrentTeachers);
 
-  const identityMap = {};
+//   const identityMap = {};
 
-  civiContacts.values.forEach((teacher) => {
-    const {
-      id: contactIds,
-      first_name: firstName,
-      last_name: lastName,
-    } = teacher;
+//   civiContacts.values.forEach((teacher) => {
+//     const {
+//       id: contactIds,
+//       first_name: firstName,
+//       last_name: lastName,
+//     } = teacher;
 
-    if (!firstName || !lastName) {
-      return;
-    }
+//     if (!firstName || !lastName) {
+//       return;
+//     }
 
-    const key = `${firstName}${lastName}`;
+//     const key = `${firstName}${lastName}`;
 
-    if (!identityMap[key]) {
-      identityMap[key] = {
-        firstName,
-        lastName,
-        campus: null,
-        grade: 0,
-        house: null,
-        contactIds: [contactIds],
-      };
-    } else {
-      identityMap[key].contactIds.push(contactIds);
-    }
-  });
+//     if (!identityMap[key]) {
+//       identityMap[key] = {
+//         firstName,
+//         lastName,
+//         campus: null,
+//         grade: 0,
+//         house: null,
+//         contactIds: [contactIds],
+//       };
+//     } else {
+//       identityMap[key].contactIds.push(contactIds);
+//     }
+//   });
 
-  return Object.values(identityMap);
-}
+//   return Object.values(identityMap);
+// }
 
 // Wrapper Methods
 export async function getIdentities() {
