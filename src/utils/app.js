@@ -72,9 +72,9 @@ export async function getMongoSessionTokens(username, password) {
     setMongoSessionAccessTokenCookie(data.access_token);
     setMongoSessionRefreshTokenCookie(data.refresh_token);
 
-    return true;
+    return response.status;
   }
-  return false;
+  return response.status;
 }
 
 export async function refreshMongoSessionAccessToken() {
@@ -93,6 +93,7 @@ export async function refreshMongoSessionAccessToken() {
   } else return false;
 }
 
+// See below comment about CiciCRM integration
 // export async function getMongoXCiviAuth() {
 //   if (hasMongoSessionAccessTokenCookie()) {
 //     const response = await fetch(
