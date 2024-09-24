@@ -16,21 +16,21 @@
           </div>
         </div>
 
-          <div class="rocker-switch">
-            <input type="radio" id="a-z" :value="1" v-model="sortDirection">
-            <label class="left" for="a-z">a - z</label>
-            <input type="radio" id="z-a" :value="-1" v-model="sortDirection">
-            <label class="right" for="z-a">z - a</label>
-          </div>
+        <div class="rocker-switch">
+          <input type="radio" id="a-z" :value="1" v-model="sortDirection">
+          <label class="left" for="a-z">a - z</label>
+          <input type="radio" id="z-a" :value="-1" v-model="sortDirection">
+          <label class="right" for="z-a">z - a</label>
+        </div>
 
-          <StyledButton @click="addAllFromFilter" text-color="#fff" button-color="#444">
-            Add All To Session
-          </StyledButton>
+        <StyledButton @click="addAllFromFilter" text-color="#fff" button-color="#444">
+          Add All To Session
+        </StyledButton>
       </div>
 
       <IdentityCardPane>
         <IdentityCard v-for="identity in filteredIdentities"
-          :key="identity.firstName + identity.lastName + identity.campus" :identity="identity"
+          :key="identity.id" :identity="identity"
           :image="require('@/assets/plus-circle.svg')" :addIdentity="true"
           @add-identity="$emit('add-identity', $event)" />
       </IdentityCardPane>
@@ -79,12 +79,18 @@ export default {
   computed: {
     filteredIdentities() {
       const filtered = this.identities.filter((identity) => {
-        const matchesQuery = `${identity.firstName} ${identity.lastName}`
-          .toLowerCase()
-          .includes(this.searchQuery.toLowerCase());
+        const searchWords = this.searchQuery.toLowerCase().split(' ');
+
+        const matchesQuery = searchWords.every(word =>
+          [identity.firstName, identity.commonName, identity.lastName]
+            .some(name => (name || '').toLowerCase().includes(word))
+        );
 
         const matchesFilters = Object.keys(this.selectedFiltersOptions).every((key) => {
           const selectedOption = this.selectedFiltersOptions[key];
+          // selectedFilterOptions starts as an empty object. As filters are selected
+          // the properties are added to the object. When the filters are removed
+          // the key remains but the value becomes ""
           if (selectedOption !== "") {
             const identityValue = identity[key]
             if (identityValue !== null && identityValue !== "") {

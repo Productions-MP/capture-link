@@ -139,6 +139,7 @@ export async function createMongoCaptureLinkIdentity(
   lastName,
   campus,
   grade,
+  section,
   house,
   contactIds
 ) {
@@ -161,6 +162,7 @@ export async function createMongoCaptureLinkIdentity(
             last_name: lastName,
             campus: campus,
             grade: grade,
+            section: section,
             house: house,
             contact_ids: contactIds,
           },
@@ -169,9 +171,10 @@ export async function createMongoCaptureLinkIdentity(
     );
 
     if (response.ok) {
-      return true;
+      const responseObject = await response.json();
+      return responseObject.insertedId
     }
-    return false;
+    return null;
   } else if (hasMongoSessionRefreshTokenCookie()) {
     if (await refreshMongoSessionAccessToken()) {
       return await createMongoCaptureLinkIdentity(
@@ -179,6 +182,7 @@ export async function createMongoCaptureLinkIdentity(
         lastName,
         campus,
         grade,
+        section,
         house,
         contactIds
       );
@@ -218,10 +222,13 @@ export async function getMongoCaptureLinkIdentities() {
         const responseObject = await response.json();
         const identities = responseObject.documents.map((el) => {
           return {
+            id: el._id,
             firstName: el.first_name,
             lastName: el.last_name,
+            commonName: el.common_name,
             campus: el.campus,
             grade: el.grade,
+            section: el.section,
             house: el.house,
             contactIds: el.contact_ids,
           };
@@ -275,7 +282,9 @@ export async function postMongoCaptureLinkSessionStart(activeIdentities) {
           document: {
             session_start: Date.now(),
             session_end: null,
-            identities: activeIdentities,
+            identities: activeIdentities.map((identity) => {
+              return { $oid: identity.id };
+            }),
           },
         }),
       }
@@ -472,7 +481,7 @@ export function getObjectArrayFilterObject(objectArray) {
     const values = objectArray.map((item) => item[key]);
     let uniqueValues = [...new Set(values)];
     uniqueValues = uniqueValues.filter(
-      (value) => value !== null && value !== ""
+      (value) => value !== null && value !== "" && value !== undefined
     );
 
     if (uniqueValues.length < 50) {
@@ -487,7 +496,6 @@ export function getObjectArrayFilterObject(objectArray) {
       }
     }
   });
-
   return options;
 }
 

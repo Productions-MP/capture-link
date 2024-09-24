@@ -1,7 +1,7 @@
 <template>
     <li>
         <div>
-            <h2>{{ identity.firstName }} {{ identity.lastName }}</h2>
+            <h2>{{ identity.firstName }} <span v-if="identity.firstName != identity.commonName && identity.commonName != undefined">({{ identity.commonName }})</span> {{ identity.lastName }}</h2>
             <p v-if="identity.grade==0">Faculty</p>
             <p v-else>
                 <span v-if="identity.grade == -2"> Junior Kindergarten</span>

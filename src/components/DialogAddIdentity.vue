@@ -26,6 +26,16 @@
       </div>
 
       <div>
+        <label for="section">Section (Optional)</label>
+        <select id="section" v-model="identity.section">
+          <option></option>
+          <option v-for="option in filterObject.section" :key="option" :value="option">
+            {{ option }}
+          </option>
+        </select>
+      </div>
+
+      <div>
         <label for="house">House (Optional)</label>
         <select id="house" v-model="identity.house">
           <option></option>
@@ -72,10 +82,12 @@ export default {
   data() {
     return {
       identity: {
+        id: null,
         firstName: '',
         lastName: '',
         campus: null,
         grade: null,
+        section: null,
         house: null,
         contactIds: [null],
       },
@@ -99,16 +111,19 @@ export default {
         return;
       }
 
-      const isSuccess = await createMongoCaptureLinkIdentity(
+      const insertedId = await createMongoCaptureLinkIdentity(
         this.identity.firstName,
         this.identity.lastName,
         this.identity.campus,
         this.identity.grade,
+        this.identity.section,
         this.identity.house,
         [...new Set(this.identity.contactIds)]
       )
 
-      if (isSuccess) {
+        console.log(insertedId)
+      if (insertedId != null) {
+        this.identity.id = insertedId
         this.$emit('identity-created', this.identity)
         this.closeDialog()
       }
@@ -117,10 +132,12 @@ export default {
     },
     closeDialog() {
       this.identity = {
+        id: null,
         firstName: '',
         lastName: '',
         campus: null,
         grade: null,
+        section: null,
         house: null,
         contactIds: [],
       };
