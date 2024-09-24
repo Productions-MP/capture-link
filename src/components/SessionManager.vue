@@ -3,11 +3,11 @@
         <div class="control-panel">
             <div>
                 <StyledButton v-if="!isSessionActive" @click="startSession" :disabled="this.isDisabled" text-color="#fff" button-color="#39B357">
-                    {{ this.isDisabled ? 'Starting Session...' : 'Start Session' }}
+                    {{ this.isDisabled ? 'Starting...' : 'Start Session' }} ({{ this.activeIdentities.length }})
                 </StyledButton>
 
                 <StyledButton v-if="isSessionActive" @click="endSession" :disabled="this.isDisabled" text-color="#fff" button-color="#ff6644">
-                    {{ this.isDisabled ? 'Ending Session...' : 'End Session' }}
+                    {{ this.isDisabled ? 'Ending...' : 'End Session' }} ({{ this.activeIdentities.length }})
                 </StyledButton>
 
                 <StyledButton v-if="!isSessionActive" @click="clearSession" text-color="#fff" button-color="#444">
