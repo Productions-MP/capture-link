@@ -172,7 +172,7 @@ export async function createMongoCaptureLinkIdentity(
 
     if (response.ok) {
       const responseObject = await response.json();
-      return responseObject.insertedId
+      return responseObject.insertedId;
     }
     return null;
   } else if (hasMongoSessionRefreshTokenCookie()) {
@@ -280,8 +280,8 @@ export async function postMongoCaptureLinkSessionStart(activeIdentities) {
           database: "capture-link",
           collection: "sessions",
           document: {
-            session_start: Date.now(),
-            session_end: null,
+            session_start_dt: { "$date": { "$numberLong": Date.now() } },
+            session_end_dt: null,
             identities: activeIdentities.map((identity) => {
               return { $oid: identity.id };
             }),
@@ -320,7 +320,9 @@ export async function postMongoCaptureLinkSessionEnd(objectId) {
             _id: { $oid: objectId },
           },
           update: {
-            $set: { session_end: Date.now() },
+            $set: {
+              session_end_dt: { "$date": { "$numberLong": Date.now() } },
+            },
           },
           upsert: false,
         }),
