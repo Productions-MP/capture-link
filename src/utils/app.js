@@ -165,11 +165,33 @@ export async function createMongoCaptureLinkIdentity(
             section: section,
             house: house,
             contact_ids: contactIds,
+            campus_history: campus != null
+            ? [{
+                campus: campus,
+                changed_at: { $date: new Date().toISOString() },
+              }]
+            : [],
+            grade_history: grade != null
+            ? [{
+                grade: grade,
+                section: section,
+                changed_at: { $date: new Date().toISOString() },
+              }]
+            : [],
+            house_history: house != null
+            ? [{
+                house: house,
+                changed_at: { $date: new Date().toISOString() },
+              }]
+            : [],
+            last_updated: { $date: new Date().toISOString() },
+            status: "active"
           },
         }),
       }
     );
 
+    console.log(response)
     if (response.ok) {
       const responseObject = await response.json();
       return responseObject.insertedId;
@@ -211,7 +233,7 @@ export async function getMongoCaptureLinkIdentities() {
             dataSource: "capture-link",
             database: "capture-link",
             collection: "identities",
-            filter: {},
+            filter: { status: "active" },
             skip: skip,
             limit: limit,
           }),
@@ -280,7 +302,7 @@ export async function postMongoCaptureLinkSessionStart(activeIdentities) {
           database: "capture-link",
           collection: "sessions",
           document: {
-            session_start_dt: { "$date": { "$numberLong": Date.now() } },
+            session_start_dt: { $date: new Date().toISOString() },
             session_end_dt: null,
             identities: activeIdentities.map((identity) => {
               return { $oid: identity.id };
@@ -321,7 +343,7 @@ export async function postMongoCaptureLinkSessionEnd(objectId) {
           },
           update: {
             $set: {
-              session_end_dt: { "$date": { "$numberLong": Date.now() } },
+              session_end_dt: { $date: new Date().toISOString() },
             },
           },
           upsert: false,

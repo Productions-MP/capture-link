@@ -8,7 +8,7 @@
       <div>
         <label for="campus">Campus (Optional)</label>
         <select id="campus" v-model="identity.campus">
-          <option></option>
+          <option :value="null"></option>
           <option v-for="option in filterObject.campus" :key="option" :value="option">
             {{ getCampusString(option) }}
           </option>
@@ -18,7 +18,7 @@
       <div>
         <label for="grade">Grade (Optional)</label>
         <select id="grade" v-model="identity.grade">
-          <option></option>
+          <option :value="null"></option>
           <option v-for="option in filterObject.grade" :key="option" :value="option">
             {{ getGradeString(option) }}
           </option>
@@ -28,7 +28,7 @@
       <div>
         <label for="section">Section (Optional)</label>
         <select id="section" v-model="identity.section">
-          <option></option>
+          <option :value="null"></option>
           <option v-for="option in filterObject.section" :key="option" :value="option">
             {{ option }}
           </option>
@@ -38,7 +38,7 @@
       <div>
         <label for="house">House (Optional)</label>
         <select id="house" v-model="identity.house">
-          <option></option>
+          <option :value="null"></option>
           <option v-for="option in filterObject.house" :key="option" :value="option">
             {{ getHouseString(option) }}
           </option>
