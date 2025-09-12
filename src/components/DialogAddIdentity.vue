@@ -2,8 +2,8 @@
   <DialogBase>
     <div class="input-section">
       <h2>Add Identity</h2>
-      <input v-model="identity.firstName" placeholder="First Name" required />
-      <input v-model="identity.lastName" placeholder="Last Name" required />
+      <input v-model.trim="identity.firstName" placeholder="First Name" required />
+      <input v-model.trim="identity.lastName" placeholder="Last Name" required />
 
       <div>
         <label for="campus">Campus (Optional)</label>
