@@ -1,11 +1,16 @@
 <template>
   <div class="search-bar">
-    <input type="text" v-model="searchQuery" placeholder="Search identities..." @input="handleSearch" />
+    <div class="search-input">
+      <input type="text" v-model="searchQuery" placeholder="Search identities..." @input="handleSearch" />
+      <button v-if="searchQuery" class="clear-btn" type="button" @click="clearSearch">
+        Clear
+      </button>
+    </div>
 
     <div class="controls-results">
       <div class="controls">
         <div class="filters">
-          <div v-for="(values, key) in filterObject" :key="key">
+          <div v-for="(values, key) in filterObject" :key="key" class="filter-row">
             <label :for="key">{{ key }}:</label>
             <select :id="key" v-model="selectedFiltersOptions[key]">
               <option></option>
@@ -23,14 +28,17 @@
           <label class="right" for="z-a">z - a</label>
         </div>
 
+        <StyledButton @click="clearDropdownFilters" text-color="#fff" button-color="#444">
+          Clear Filters
+        </StyledButton>
+
         <StyledButton @click="addAllFromFilter" text-color="#fff" button-color="#444">
           Add All To Session
         </StyledButton>
       </div>
 
       <IdentityCardPane>
-        <IdentityCard v-for="identity in filteredIdentities"
-          :key="identity.id" :identity="identity"
+        <IdentityCard v-for="identity in filteredIdentities" :key="identity.id" :identity="identity"
           :image="require('@/assets/plus-circle.svg')" :addIdentity="true"
           @add-identity="$emit('add-identity', $event)" />
       </IdentityCardPane>
@@ -40,14 +48,14 @@
 
 <script>
 import IdentityCard from './IdentityCard.vue';
-import IdentityCardPane from './IdentityCardPane.vue'
+import IdentityCardPane from './IdentityCardPane.vue';
 import StyledButton from './StyledButton.vue';
 
 import {
   getCampusString,
   getGradeString,
   getHouseString
-} from '@/utils/app'
+} from '@/utils/app';
 
 export default {
   props: {
@@ -76,10 +84,22 @@ export default {
       sortDirection: 1
     };
   },
+  created() {
+    this.resetDropdownModel();
+  },
+  watch: {
+    // If filterObject changes dynamically, keep the model keys in sync
+    filterObject: {
+      handler() {
+        this.resetDropdownModel();
+      },
+      deep: true
+    }
+  },
   computed: {
     filteredIdentities() {
       const filtered = this.identities.filter((identity) => {
-        const searchWords = this.searchQuery.toLowerCase().split(' ');
+        const searchWords = this.searchQuery.toLowerCase().split(' ').filter(Boolean);
 
         const matchesQuery = searchWords.every(word =>
           [identity.firstName, identity.commonName, identity.lastName]
@@ -88,32 +108,26 @@ export default {
 
         const matchesFilters = Object.keys(this.selectedFiltersOptions).every((key) => {
           const selectedOption = this.selectedFiltersOptions[key];
-          // selectedFilterOptions starts as an empty object. As filters are selected
-          // the properties are added to the object. When the filters are removed
-          // the key remains but the value becomes ""
           if (selectedOption !== "") {
-            const identityValue = identity[key]
+            const identityValue = identity[key];
             if (identityValue !== null && identityValue !== "") {
-              return false || identityValue === selectedOption;
+              return identityValue === selectedOption;
             }
-          } else return true
+            return false;
+          }
+          return true;
         });
 
         return matchesQuery && matchesFilters;
       });
 
-      // Sort identities if a sort direction is specified
       if (this.sortDirection !== 0) {
         return filtered.sort((a, b) => {
           const nameA = `${a.lastName || ''}${a.firstName || ''}`.toLowerCase();
           const nameB = `${b.lastName || ''}${b.firstName || ''}`.toLowerCase();
 
-          if (nameA < nameB) {
-            return this.sortDirection === 1 ? -1 : 1;
-          }
-          if (nameA > nameB) {
-            return this.sortDirection === 1 ? 1 : -1;
-          }
+          if (nameA < nameB) return this.sortDirection === 1 ? -1 : 1;
+          if (nameA > nameB) return this.sortDirection === 1 ? 1 : -1;
           return 0;
         });
       }
@@ -127,18 +141,35 @@ export default {
     getHouseString,
     getOptionString(key, option) {
       switch (key) {
-        case 'campus':
-          return getCampusString(option);
-        case 'grade':
-          return getGradeString(option);
-        case 'house':
-          return getHouseString(option);
-        default:
-          return option;
+        case 'campus': return getCampusString(option);
+        case 'grade': return getGradeString(option);
+        case 'house': return getHouseString(option);
+        default: return option;
       }
     },
     addAllFromFilter() {
       this.$emit('add-all-from-filter', this.filteredIdentities);
+    },
+    handleSearch() {
+      // No-op to preserve existing hook if used elsewhere
+    },
+    clearSearch() {
+      this.searchQuery = "";
+      this.handleSearch && this.handleSearch();
+    },
+    resetDropdownModel() {
+      // ensure all filter keys exist and are reactive
+      const base = {};
+      Object.keys(this.filterObject || {}).forEach(k => {
+        base[k] = this.selectedFiltersOptions[k] ?? "";
+      });
+      this.selectedFiltersOptions = base; // replace object to keep reactivity tidy
+    },
+    clearDropdownFilters() {
+      // clear existing keys without this.$set
+      const cleared = {};
+      Object.keys(this.selectedFiltersOptions).forEach(k => (cleared[k] = ""));
+      this.selectedFiltersOptions = cleared; // replace for atomic update
     }
   }
 };
@@ -152,22 +183,50 @@ export default {
   gap: .7rem;
 }
 
-input {
-  height: 12%;
+.search-input {
+  position: relative;
+  height: 8%;
+}
+
+.search-input input {
+  width: 100%;
+  height: 100%;
   border: none;
   border-radius: 0.5rem;
   background-color: #333;
   border: 1px solid #444;
   color: #fff;
-  padding: .7rem;
+  padding: .7rem 2.2rem .7rem .7rem;
+  /* room for the X button */
 }
 
 input::placeholder {
   color: #ccc;
 }
 
+.clear-btn {
+  position: absolute;
+  right: .4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: #444;
+  color: #fff;
+  padding: .4rem;
+  border-radius: .5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.clear-btn:hover {
+  background: #555;
+}
+
 .controls-results {
-  height: 88%;
+  height: 89.5%;
   display: grid;
   grid-template-columns: 1fr 4fr;
   align-items: start;
@@ -190,14 +249,14 @@ input::placeholder {
   padding: .7rem;
 }
 
-label {
+.filter-row label {
   display: block;
   margin-bottom: .4rem;
   color: #fff;
   text-transform: capitalize;
 }
 
-select {
+.filter-row select {
   width: 100%;
   border: none;
   border-radius: .5rem;
@@ -220,7 +279,8 @@ select {
   display: block;
   width: 50%;
   text-align: center;
-  padding: 0.4rem;
+  font-size: .7rem;
+  padding: 0.3rem;
   background-color: #444;
   color: #fff;
   cursor: pointer;

@@ -141,15 +141,17 @@ export default {
   font-family: sans-serif;
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 1%;
   padding: 0.7rem;
 }
 
 .top-section {
-  height: 40%;
+  height: 44.5%;
+  flex-shrink: 0;
 }
 
 .bottom-section {
-  height: 60%;
+  height: 54.5%;
+  flex-shrink: 0;
 }
 </style>
