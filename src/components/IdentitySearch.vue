@@ -197,7 +197,6 @@ export default {
   border: 1px solid #444;
   color: #fff;
   padding: .7rem 2.2rem .7rem .7rem;
-  /* room for the X button */
 }
 
 input::placeholder {
