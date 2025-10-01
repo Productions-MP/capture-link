@@ -66,7 +66,13 @@
 <script>
 import DialogBase from './DialogBase.vue';
 import StyledButton from './StyledButton.vue';
-import { createMongoCaptureLinkIdentity, getCampusString, getGradeString, getHouseString } from '@/utils/app';
+import {
+  createIdentity,
+  getCampusString,
+  getGradeString,
+  getHouseString,
+  UnauthorizedError,
+} from '@/utils/app';
 
 export default {
   props: {
@@ -105,30 +111,38 @@ export default {
       this.identity.contactIds.splice(index, 1);
     },
     async submitIdentityForm() {
-      this.loading = true
       if (!this.identity.firstName || !this.identity.lastName) {
         alert('First name and last name are required');
         return;
       }
 
-      const insertedId = await createMongoCaptureLinkIdentity(
-        this.identity.firstName,
-        this.identity.lastName,
-        this.identity.campus,
-        this.identity.grade,
-        this.identity.section,
-        this.identity.house,
-        [...new Set(this.identity.contactIds)]
-      )
+      this.loading = true
+      try {
+        const insertedId = await createIdentity(
+          this.identity.firstName,
+          this.identity.lastName,
+          this.identity.campus,
+          this.identity.grade,
+          this.identity.section,
+          this.identity.house,
+          [...new Set(this.identity.contactIds)]
+        )
 
-        console.log(insertedId)
-      if (insertedId != null) {
-        this.identity.id = insertedId
-        this.$emit('identity-created', this.identity)
-        this.closeDialog()
+        if (insertedId != null) {
+          this.identity.id = insertedId
+          this.$emit('identity-created', this.identity)
+          this.closeDialog()
+        }
+      } catch (error) {
+        if (error instanceof UnauthorizedError) {
+          this.$emit('session-expired')
+        } else {
+          console.error(error)
+          alert('Unable to create identity. Please try again later.')
+        }
+      } finally {
+        this.loading = false
       }
-
-      this.loading = false
     },
     closeDialog() {
       this.identity = {
@@ -139,9 +153,9 @@ export default {
         grade: null,
         section: null,
         house: null,
-        contactIds: [],
+        contactIds: [null],
       };
-      this.$emit('close');
+      this.$emit('hide-add-identity');
     },
   },
 };
