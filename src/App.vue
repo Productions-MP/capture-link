@@ -100,7 +100,8 @@ export default {
     },
     addAllFromFilter(filteredIdentities) {
       if (!this.isSessionActive) {
-        filteredIdentities.forEach(identity => {
+        const toAdd = [...filteredIdentities];
+        toAdd.forEach(identity => {
           const index = this.identities.findIndex(
             (aI) => aI.firstName === identity.firstName && aI.lastName === identity.lastName
           );
