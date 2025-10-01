@@ -1,8 +1,9 @@
 <template>
-  <DialogLogin v-if="this.showLogIn" @gotMongoSession="handleGotMongoSession" />
+  <DialogLogin v-if="this.showLogIn" @authenticated="handleGotSession" />
 
-  <DialogAddIdentity v-if="this.showAddIdentity" :filterObject="this.identitiesFilterObject" @identity-created="handleIdentityCreated"
-    @hide-add-identity="this.showAddIdentity = false" />
+  <DialogAddIdentity v-if="this.showAddIdentity" :filterObject="this.identitiesFilterObject"
+    @identity-created="handleIdentityCreated" @hide-add-identity="this.showAddIdentity = false"
+    @session-expired="handleSessionExpired" />
 
   <div class="top-section">
     <identity-search :identities="identities" :filterObject="identitiesFilterObject"
@@ -19,14 +20,13 @@
 
 <script>
 import {
-  hasMongoSessionAccessTokenCookie,
-  hasMongoSessionRefreshTokenCookie,
-  hasMongoSessionCookies,
-  refreshMongoSessionAccessToken,
-  getIdentities,
-  postMongoCaptureLinkSessionStart,
-  postMongoCaptureLinkSessionEnd,
-  getObjectArrayFilterObject
+  hasActiveSession,
+  fetchIdentities,
+  startCaptureLinkSession,
+  endCaptureLinkSession,
+  getObjectArrayFilterObject,
+  clearSessionCookies,
+  UnauthorizedError
 } from '@/utils/app'
 import DialogLogin from '@/components/DialogLogin.vue';
 import DialogAddIdentity from '@/components/DialogAddIdentity.vue';
@@ -37,7 +37,7 @@ import SessionManager from "./components/SessionManager.vue";
 export default {
   data() {
     return {
-      showLogIn: !hasMongoSessionCookies(),
+      showLogIn: !hasActiveSession(),
       showAddIdentity: false,
       identities: [],
       activeIdentities: [],
@@ -47,10 +47,7 @@ export default {
     };
   },
   async created() {
-    if (!hasMongoSessionAccessTokenCookie() && hasMongoSessionRefreshTokenCookie()) {
-      await refreshMongoSessionAccessToken()
-    }
-    this.identities = await getIdentities()
+    await this.loadIdentities()
   },
   components: {
     IdentitySearch,
@@ -64,11 +61,22 @@ export default {
     }
   },
   methods: {
-    hasMongoSessionCookies,
+    async loadIdentities() {
+      if (!hasActiveSession()) {
+        this.showLogIn = true
+        return
+      }
+
+      try {
+        this.identities = await fetchIdentities()
+      } catch (error) {
+        this.handlePotentialUnauthorized(error)
+      }
+    },
     getObjectArrayFilterObject,
-    async handleGotMongoSession() {
+    async handleGotSession() {
       this.showLogIn = false
-      this.identities = await getIdentities()
+      await this.loadIdentities()
     },
     addIdentityToActive(identity) {
       if (!this.isSessionActive) {
@@ -109,27 +117,62 @@ export default {
       }
     },
     async startSession() {
-      if (this.activeIdentities.length > 0) {
-        this.isDisabled = true
-        this.sessionId = await postMongoCaptureLinkSessionStart(this.activeIdentities)
-        if (this.sessionId !== null) {
+      if (this.activeIdentities.length === 0) {
+        return
+      }
+
+      this.isDisabled = true
+      try {
+        this.sessionId = await startCaptureLinkSession(this.activeIdentities)
+        if (this.sessionId) {
           this.isSessionActive = true
-          this.isDisabled = false
         }
+      } catch (error) {
+        this.handlePotentialUnauthorized(error)
+      } finally {
+        this.isDisabled = false
       }
     },
     async endSession() {
+      if (!this.sessionId) {
+        return
+      }
+
       this.isDisabled = true
-      const isSuccess = await postMongoCaptureLinkSessionEnd(this.sessionId)
-      if (isSuccess) {
-        this.sessionId = null
-        this.isSessionActive = false
+      try {
+        const isSuccess = await endCaptureLinkSession(this.sessionId)
+        if (isSuccess) {
+          this.sessionId = null
+          this.isSessionActive = false
+        }
+      } catch (error) {
+        this.handlePotentialUnauthorized(error)
+      } finally {
         this.isDisabled = false
       }
     },
     handleIdentityCreated(identity) {
       this.activeIdentities.push(identity)
       this.showAddIdentity = false
+    },
+    handlePotentialUnauthorized(error) {
+      if (error instanceof UnauthorizedError) {
+        this.handleSessionExpired()
+      } else {
+        console.error(error)
+      }
+    },
+    handleSessionExpired() {
+      clearSessionCookies()
+      this.showLogIn = true
+      this.showAddIdentity = false
+      this.isSessionActive = false
+      this.isDisabled = false
+      this.sessionId = null
+      if (this.activeIdentities.length > 0) {
+        this.identities = [...this.activeIdentities, ...this.identities]
+        this.activeIdentities = []
+      }
     }
   },
 };

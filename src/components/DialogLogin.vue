@@ -3,6 +3,7 @@
         <h2>Login Required</h2>
         <input ref="username" placeholder="Username" />
         <input ref="password" type="password" placeholder="Password" />
+        <p v-if="hasNetworkError" class="error">A network error occurred. Please try again.</p>
         <StyledButton @click="handleLogInClick" :text-color="isShaking ? '#fff' : '#fff'"
             :button-color="isShaking ? '#ff4d4d' : '#39B357'">
             Login
@@ -13,7 +14,7 @@
 <script>
 import BaseDialog from './DialogBase.vue';
 import StyledButton from './StyledButton.vue';
-import { getMongoSessionTokens } from '@/utils/app';
+import { authenticate } from '@/utils/app';
 
 export default {
     components: {
@@ -30,12 +31,19 @@ export default {
         async handleLogInClick() {
             const username = this.$refs.username.value;
             const password = this.$refs.password.value;
-            const statusCode = await getMongoSessionTokens(username, password);
+            this.hasNetworkError = false;
 
-            if (statusCode == 200) {
-                this.$emit('gotMongoSession');
-            } else if (statusCode == 401) {
-                this.triggerFailedLoginEffect();
+            try {
+                const statusCode = await authenticate(username, password);
+
+                if (statusCode == 200) {
+                    this.$emit('authenticated');
+                } else if (statusCode == 401) {
+                    this.triggerFailedLoginEffect();
+                }
+            } catch (error) {
+                console.error(error);
+                this.hasNetworkError = true;
             }
         },
         triggerFailedLoginEffect() {
@@ -51,6 +59,11 @@ export default {
 <style scoped>
 .shake {
     animation: shake 0.5s;
+}
+
+.error {
+    color: #ff4d4d;
+    margin: 0.5rem 0;
 }
 
 @keyframes shake {

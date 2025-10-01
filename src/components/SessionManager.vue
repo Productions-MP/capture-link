@@ -36,7 +36,7 @@
 </template>
 
 <script>
-import { clearMongoSessionCookies } from '@/utils/app';
+import { clearSessionCookies } from '@/utils/app';
 import IdentityCard from './IdentityCard.vue';
 import IdentityCardPane from './IdentityCardPane.vue';
 import StyledButton from './StyledButton.vue';
@@ -80,7 +80,7 @@ export default {
             this.$emit('clear-identities');
         },
         logOut() {
-            clearMongoSessionCookies();
+            clearSessionCookies();
             window.location.reload();
         },
         handleRefresh() {
