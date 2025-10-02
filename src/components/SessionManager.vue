@@ -2,7 +2,14 @@
     <div class="session-manager">
         <div class="control-panel">
             <div>
-                <StyledButton v-if="!isSessionActive" @click="startSession" :disabled="this.isDisabled" text-color="#fff" button-color="#39B357">
+                <StyledButton
+                    v-if="!isSessionActive"
+                    @click="startSession"
+                    :disabled="isStartDisabled"
+                    text-color="#fff"
+                    button-color="#39B357"
+                    :disabled-button-color="'#444'"
+                >
                     {{ this.isDisabled ? 'Starting...' : 'Start Session' }} ({{ this.activeIdentities.length }})
                 </StyledButton>
 
@@ -10,10 +17,19 @@
                     {{ this.isDisabled ? 'Ending...' : 'End Session' }} ({{ this.activeIdentities.length }})
                 </StyledButton>
 
-                <StyledButton v-if="!isSessionActive" @click="clearSession" text-color="#fff" button-color="#444">
+                <StyledButton
+                    v-if="!isSessionActive"
+                    @click="clearSession"
+                    :disabled="!canClearSession"
+                    text-color="#fff"
+                    button-color="#444"
+                    :disabled-button-color="'#444'"
+                >
                     Clear Session
                 </StyledButton>
+            </div>
 
+            <div class="secondary-actions">
                 <StyledButton v-if="!isSessionActive" @click="this.$emit('show-add-identity')" text-color="#fff" button-color="#444">
                     Create Identity
                 </StyledButton>
@@ -21,17 +37,23 @@
                 <StyledButton v-if="!isSessionActive" @click="handleRefresh()" text-color="#fff" button-color="#444">
                     Refresh Page
                 </StyledButton>
-            </div>
 
-            <StyledButton @click="logOut()" text-color="#fff" button-color="#444">
-                Log Out
-            </StyledButton>
+                <StyledButton @click="logOut()" text-color="#fff" button-color="#444">
+                    Log Out
+                </StyledButton>
+            </div>
         </div>
-        <IdentityCardPane ref="identityPane">
-            <IdentityCard v-for="identity in activeIdentities" :key="identity.firstName + identity.lastName"
-                :identity="identity" :image="require('@/assets/minus-circle.svg')" :addIdentity="false"
-                @remove-identity="$emit('remove-identity', $event)" />
-        </IdentityCardPane>
+        <div class="identity-pane">
+            <div class="identity-pane__header">
+                <span>Session Identities</span>
+                <span>{{ activeIdentities.length }}</span>
+            </div>
+            <IdentityCardPane ref="identityPane">
+                <IdentityCard v-for="identity in activeIdentities" :key="identity.firstName + identity.lastName"
+                    :identity="identity" :image="require('@/assets/minus-circle.svg')" :addIdentity="false"
+                    @remove-identity="$emit('remove-identity', $event)" />
+            </IdentityCardPane>
+        </div>
     </div>
 </template>
 
@@ -60,6 +82,17 @@ export default {
         IdentityCard,
         IdentityCardPane,
         StyledButton,
+    },
+    computed: {
+        canClearSession() {
+            return !this.isSessionActive && this.activeIdentities.length > 0;
+        },
+        canStartSession() {
+            return !this.isSessionActive && this.activeIdentities.length > 0;
+        },
+        isStartDisabled() {
+            return this.isDisabled || !this.canStartSession;
+        }
     },
     watch: {
         activeIdentities: {
@@ -105,6 +138,10 @@ export default {
     gap: .7rem;
 }
 
+.session-manager > * {
+    min-height: 0;
+}
+
 .control-panel {
     width: 100%;
     height: 100%;
@@ -113,10 +150,37 @@ export default {
     justify-content: space-between;
 }
 
+.control-panel > * {
+    min-height: 0;
+}
+
 .control-panel > div {
     width: 100%;
     display: flex;
     flex-direction: column;
     gap: .7rem;
+}
+
+.identity-pane {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.identity-pane__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .35rem .7rem;
+    background-color: #222;
+    border: 1px solid #444;
+    border-radius: .5rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: .75rem;
+    letter-spacing: .05em;
+    color: #ccc;
 }
 </style>

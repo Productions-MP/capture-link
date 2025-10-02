@@ -28,20 +28,36 @@
           <label class="right" for="z-a">z - a</label>
         </div>
 
-        <StyledButton @click="clearDropdownFilters" text-color="#fff" button-color="#444">
+        <StyledButton
+          @click="clearDropdownFilters"
+          text-color="#fff"
+          button-color="#444"
+          :disabled="!hasActiveFilters"
+        >
           Clear Filters
         </StyledButton>
 
-        <StyledButton @click="addAllFromFilter" text-color="#fff" button-color="#444">
+        <StyledButton
+          @click="addAllFromFilter"
+          text-color="#fff"
+          button-color="#444"
+          :disabled="!canAddAllToSession"
+        >
           Add All To Session
         </StyledButton>
       </div>
 
-      <IdentityCardPane>
-        <IdentityCard v-for="identity in filteredIdentities" :key="identity.id" :identity="identity"
-          :image="require('@/assets/plus-circle.svg')" :addIdentity="true"
-          @add-identity="$emit('add-identity', $event)" />
-      </IdentityCardPane>
+      <div class="identity-pane">
+        <div class="identity-pane__header">
+          <span>Available Identities</span>
+          <span>{{ filteredIdentities.length }}</span>
+        </div>
+        <IdentityCardPane>
+          <IdentityCard v-for="identity in filteredIdentities" :key="identity.id" :identity="identity"
+            :image="require('@/assets/plus-circle.svg')" :addIdentity="true"
+            @add-identity="$emit('add-identity', $event)" />
+        </IdentityCardPane>
+      </div>
     </div>
   </div>
 </template>
@@ -133,6 +149,12 @@ export default {
       }
 
       return filtered;
+    },
+    hasActiveFilters() {
+      return Object.values(this.selectedFiltersOptions || {}).some(value => value !== '');
+    },
+    canAddAllToSession() {
+      return this.filteredIdentities.length > 0;
     }
   },
   methods: {
@@ -183,6 +205,29 @@ export default {
   gap: .7rem;
 }
 
+.identity-pane {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.identity-pane__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .35rem .7rem;
+  background-color: #222;
+  border: 1px solid #444;
+  border-radius: .5rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: .75rem;
+  letter-spacing: .05em;
+  color: #ccc;
+}
+
 .search-input {
   position: relative;
   height: 8%;
@@ -230,6 +275,10 @@ input::placeholder {
   grid-template-columns: 1fr 4fr;
   align-items: start;
   gap: .7rem;
+}
+
+.controls-results > * {
+  min-height: 0;
 }
 
 .controls {

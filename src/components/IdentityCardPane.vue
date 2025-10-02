@@ -12,7 +12,8 @@ export default {
 
 <style scoped>
 ul {
-    height: 100%; /* Ensure it takes full height of the container */
+    flex: 1 1 auto;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: .75rem;
