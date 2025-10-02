@@ -47,11 +47,17 @@
         </StyledButton>
       </div>
 
-      <IdentityCardPane>
-        <IdentityCard v-for="identity in filteredIdentities" :key="identity.id" :identity="identity"
-          :image="require('@/assets/plus-circle.svg')" :addIdentity="true"
-          @add-identity="$emit('add-identity', $event)" />
-      </IdentityCardPane>
+      <div class="identity-pane">
+        <div class="identity-pane__header">
+          <span>Available Identities</span>
+          <span>{{ filteredIdentities.length }}</span>
+        </div>
+        <IdentityCardPane>
+          <IdentityCard v-for="identity in filteredIdentities" :key="identity.id" :identity="identity"
+            :image="require('@/assets/plus-circle.svg')" :addIdentity="true"
+            @add-identity="$emit('add-identity', $event)" />
+        </IdentityCardPane>
+      </div>
     </div>
   </div>
 </template>
@@ -197,6 +203,28 @@ export default {
   display: flex;
   flex-direction: column;
   gap: .7rem;
+}
+
+.identity-pane {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.identity-pane__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .35rem .7rem;
+  background-color: #222;
+  border: 1px solid #444;
+  border-radius: .5rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: .75rem;
+  letter-spacing: .05em;
+  color: #ccc;
 }
 
 .search-input {

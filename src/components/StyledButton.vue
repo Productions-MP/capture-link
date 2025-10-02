@@ -25,6 +25,14 @@ export default {
       type: String,
       default: '#007bff'
     },
+    disabledButtonColor: {
+      type: String,
+      default: null
+    },
+    disabledTextColor: {
+      type: String,
+      default: null
+    },
     disabled: {
       type: Boolean,
       default: false
@@ -33,10 +41,10 @@ export default {
   computed: {
     buttonStyles() {
       const backgroundColor = this.disabled
-        ? this.adjustColor(this.buttonColor, 0.65)
+        ? this.disabledButtonColor || this.adjustColor(this.buttonColor, 0.65)
         : this.buttonColor;
       const color = this.disabled
-        ? this.adjustColor(this.textColor, 0.8)
+        ? this.disabledTextColor || this.adjustColor(this.textColor, 0.8)
         : this.textColor;
 
       return {

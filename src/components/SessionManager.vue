@@ -2,7 +2,14 @@
     <div class="session-manager">
         <div class="control-panel">
             <div>
-                <StyledButton v-if="!isSessionActive" @click="startSession" :disabled="this.isDisabled" text-color="#fff" button-color="#39B357">
+                <StyledButton
+                    v-if="!isSessionActive"
+                    @click="startSession"
+                    :disabled="isStartDisabled"
+                    text-color="#fff"
+                    button-color="#39B357"
+                    :disabled-button-color="'#444'"
+                >
                     {{ this.isDisabled ? 'Starting...' : 'Start Session' }} ({{ this.activeIdentities.length }})
                 </StyledButton>
 
@@ -29,11 +36,17 @@
                 </StyledButton>
             </div>
         </div>
-        <IdentityCardPane ref="identityPane">
-            <IdentityCard v-for="identity in activeIdentities" :key="identity.firstName + identity.lastName"
-                :identity="identity" :image="require('@/assets/minus-circle.svg')" :addIdentity="false"
-                @remove-identity="$emit('remove-identity', $event)" />
-        </IdentityCardPane>
+        <div class="identity-pane">
+            <div class="identity-pane__header">
+                <span>Session Identities</span>
+                <span>{{ activeIdentities.length }}</span>
+            </div>
+            <IdentityCardPane ref="identityPane">
+                <IdentityCard v-for="identity in activeIdentities" :key="identity.firstName + identity.lastName"
+                    :identity="identity" :image="require('@/assets/minus-circle.svg')" :addIdentity="false"
+                    @remove-identity="$emit('remove-identity', $event)" />
+            </IdentityCardPane>
+        </div>
     </div>
 </template>
 
@@ -67,6 +80,12 @@ export default {
         canClearSession() {
             return !this.isSessionActive && this.activeIdentities.length > 0;
         },
+        canStartSession() {
+            return !this.isSessionActive && this.activeIdentities.length > 0;
+        },
+        isStartDisabled() {
+            return this.isDisabled || !this.canStartSession;
+        }
     },
     watch: {
         activeIdentities: {
@@ -125,5 +144,27 @@ export default {
     display: flex;
     flex-direction: column;
     gap: .7rem;
+}
+
+.identity-pane {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+
+.identity-pane__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: .35rem .7rem;
+    background-color: #222;
+    border: 1px solid #444;
+    border-radius: .5rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: .75rem;
+    letter-spacing: .05em;
+    color: #ccc;
 }
 </style>
