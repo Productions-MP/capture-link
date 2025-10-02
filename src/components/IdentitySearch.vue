@@ -28,11 +28,21 @@
           <label class="right" for="z-a">z - a</label>
         </div>
 
-        <StyledButton @click="clearDropdownFilters" text-color="#fff" button-color="#444">
+        <StyledButton
+          @click="clearDropdownFilters"
+          text-color="#fff"
+          button-color="#444"
+          :disabled="!hasActiveFilters"
+        >
           Clear Filters
         </StyledButton>
 
-        <StyledButton @click="addAllFromFilter" text-color="#fff" button-color="#444">
+        <StyledButton
+          @click="addAllFromFilter"
+          text-color="#fff"
+          button-color="#444"
+          :disabled="!canAddAllToSession"
+        >
           Add All To Session
         </StyledButton>
       </div>
@@ -133,6 +143,12 @@ export default {
       }
 
       return filtered;
+    },
+    hasActiveFilters() {
+      return Object.values(this.selectedFiltersOptions || {}).some(value => value !== '');
+    },
+    canAddAllToSession() {
+      return this.filteredIdentities.length > 0;
     }
   },
   methods: {
