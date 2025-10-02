@@ -24,6 +24,12 @@
           </div>
         </div>
 
+        <div class="rocker-switch">
+          <input type="radio" id="a-z" :value="1" v-model="sortDirection">
+          <label class="left" for="a-z">a - z</label>
+          <input type="radio" id="z-a" :value="-1" v-model="sortDirection">
+          <label class="right" for="z-a">z - a</label>
+        </div>
 
         <div class="filters">
           <div v-for="(values, key) in filterObject" :key="key" class="filter-row">
@@ -35,13 +41,6 @@
               </option>
             </select>
           </div>
-        </div>
-
-        <div class="rocker-switch">
-          <input type="radio" id="a-z" :value="1" v-model="sortDirection">
-          <label class="left" for="a-z">a - z</label>
-          <input type="radio" id="z-a" :value="-1" v-model="sortDirection">
-          <label class="right" for="z-a">z - a</label>
         </div>
 
         <StyledButton @click="clearDropdownFilters" text-color="#222" button-color="#fff" :disabled="!hasActiveFilters">
@@ -323,7 +322,6 @@ input::placeholder {
 
 .filter-row select {
   width: 100%;
-  border: none;
   border-radius: .5rem;
   background-color: #222;
   border: 1px solid #444;
