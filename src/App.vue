@@ -57,7 +57,12 @@ export default {
   },
   computed: {
     identitiesFilterObject() {
-      return getObjectArrayFilterObject(this.identities)
+      const allKnownIdentities = [
+        ...this.identities,
+        ...this.activeIdentities
+      ]
+
+      return getObjectArrayFilterObject(allKnownIdentities)
     }
   },
   methods: {
