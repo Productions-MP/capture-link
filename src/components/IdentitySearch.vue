@@ -21,11 +21,19 @@
           </div>
         </div>
 
-        <div class="rocker-switch">
-          <input type="radio" id="a-z" :value="1" v-model="sortDirection">
-          <label class="left" for="a-z">a - z</label>
-          <input type="radio" id="z-a" :value="-1" v-model="sortDirection">
-          <label class="right" for="z-a">z - a</label>
+        <div class="sort-controls">
+          <label class="sort-select-label" for="sort-key">Sort by</label>
+          <select id="sort-key" v-model="sortKey">
+            <option value="name">Name</option>
+            <option value="gradeSection">Grade &amp; Section</option>
+          </select>
+
+          <div class="rocker-switch">
+            <input type="radio" id="a-z" :value="1" v-model="sortDirection">
+            <label class="left" for="a-z">a - z</label>
+            <input type="radio" id="z-a" :value="-1" v-model="sortDirection">
+            <label class="right" for="z-a">z - a</label>
+          </div>
         </div>
 
         <StyledButton @click="clearDropdownFilters" text-color="#fff" button-color="#444">
@@ -81,7 +89,8 @@ export default {
     return {
       searchQuery: '',
       selectedFiltersOptions: {},
-      sortDirection: 1
+      sortDirection: 1,
+      sortKey: 'name'
     };
   },
   created() {
@@ -122,14 +131,16 @@ export default {
       });
 
       if (this.sortDirection !== 0) {
-        return filtered.sort((a, b) => {
-          const nameA = `${a.lastName || ''}${a.firstName || ''}`.toLowerCase();
-          const nameB = `${b.lastName || ''}${b.firstName || ''}`.toLowerCase();
+        const direction = this.sortDirection === 1 ? 1 : -1;
+        const sorted = [...filtered].sort((a, b) => {
+          if (this.sortKey === 'gradeSection') {
+            return this.compareByGradeSection(a, b, direction);
+          }
 
-          if (nameA < nameB) return this.sortDirection === 1 ? -1 : 1;
-          if (nameA > nameB) return this.sortDirection === 1 ? 1 : -1;
-          return 0;
+          return this.compareByName(a, b) * direction;
         });
+
+        return sorted;
       }
 
       return filtered;
@@ -170,6 +181,46 @@ export default {
       const cleared = {};
       Object.keys(this.selectedFiltersOptions).forEach(k => (cleared[k] = ""));
       this.selectedFiltersOptions = cleared; // replace for atomic update
+    },
+    compareByName(a, b) {
+      const nameA = `${a.lastName || ''}${a.firstName || ''}`.toLowerCase();
+      const nameB = `${b.lastName || ''}${b.firstName || ''}`.toLowerCase();
+
+      if (nameA < nameB) return -1;
+      if (nameA > nameB) return 1;
+      return 0;
+    },
+    compareByGradeSection(a, b, direction = 1) {
+      const hasGradeA = typeof a.grade === 'number';
+      const hasGradeB = typeof b.grade === 'number';
+
+      if (hasGradeA !== hasGradeB) {
+        return hasGradeA ? -1 : 1;
+      }
+
+      if (hasGradeA && hasGradeB && a.grade !== b.grade) {
+        return direction === 1 ? a.grade - b.grade : b.grade - a.grade;
+      }
+
+      const sectionA = (a.section || '').toString().toLowerCase();
+      const sectionB = (b.section || '').toString().toLowerCase();
+
+      const hasSectionA = Boolean(sectionA);
+      const hasSectionB = Boolean(sectionB);
+
+      if (hasSectionA !== hasSectionB) {
+        return hasSectionA ? -1 : 1;
+      }
+
+      if (hasSectionA && hasSectionB && sectionA !== sectionB) {
+        if (direction === 1) {
+          return sectionA < sectionB ? -1 : 1;
+        }
+        return sectionA < sectionB ? 1 : -1;
+      }
+
+      const nameComparison = this.compareByName(a, b);
+      return direction === 1 ? nameComparison : -nameComparison;
     }
   }
 };
@@ -264,10 +315,35 @@ input::placeholder {
   padding: .4rem;
 }
 
+.sort-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .7rem;
+  align-items: center;
+  background-color: #333;
+  border-radius: .5rem;
+  border: 1px solid #444;
+  padding: .5rem;
+}
+
+.sort-select-label {
+  color: #fff;
+  font-size: .8rem;
+}
+
+.sort-controls select {
+  background-color: #444;
+  color: #fff;
+  border: 1px solid #555;
+  border-radius: .4rem;
+  padding: .3rem .6rem;
+}
+
 .rocker-switch {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  border: 1px solid #555;
+  border-radius: .4rem;
+  overflow: hidden;
 }
 
 .rocker-switch input[type="radio"] {
