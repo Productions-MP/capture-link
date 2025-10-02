@@ -81,7 +81,7 @@ export default {
     addIdentityToActive(identity) {
       if (!this.isSessionActive) {
         const index = this.identities.findIndex(
-          (aI) => aI.firstName === identity.firstName && aI.lastName === identity.lastName
+          (aI) => aI.id === identity.id
         );
         if (index !== -1) {
           this.activeIdentities.push(this.identities.splice(index, 1)[0]);
@@ -91,7 +91,7 @@ export default {
     removeIdentityFromActive(identity) {
       if (!this.isSessionActive) {
         const index = this.activeIdentities.findIndex(
-          (aI) => aI.firstName === identity.firstName && aI.lastName === identity.lastName
+          (aI) => aI.id === identity.id
         );
         if (index !== -1) {
           this.identities.push(this.activeIdentities.splice(index, 1)[0]);
@@ -103,7 +103,7 @@ export default {
         const toAdd = [...filteredIdentities];
         toAdd.forEach(identity => {
           const index = this.identities.findIndex(
-            (aI) => aI.firstName === identity.firstName && aI.lastName === identity.lastName
+            (aI) => aI.id === identity.id
           );
           if (index !== -1) {
             this.activeIdentities.push(this.identities.splice(index, 1)[0]);
