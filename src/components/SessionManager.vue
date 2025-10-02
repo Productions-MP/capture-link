@@ -17,7 +17,14 @@
                     {{ this.isDisabled ? 'Ending...' : 'End Session' }} ({{ this.activeIdentities.length }})
                 </StyledButton>
 
-                <StyledButton v-if="!isSessionActive" @click="clearSession" :disabled="!canClearSession" text-color="#fff" button-color="#444">
+                <StyledButton
+                    v-if="!isSessionActive"
+                    @click="clearSession"
+                    :disabled="!canClearSession"
+                    text-color="#fff"
+                    button-color="#444"
+                    :disabled-button-color="'#444'"
+                >
                     Clear Session
                 </StyledButton>
             </div>
@@ -131,12 +138,20 @@ export default {
     gap: .7rem;
 }
 
+.session-manager > * {
+    min-height: 0;
+}
+
 .control-panel {
     width: 100%;
     height: 100%;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+}
+
+.control-panel > * {
+    min-height: 0;
 }
 
 .control-panel > div {
@@ -147,10 +162,11 @@ export default {
 }
 
 .identity-pane {
-    height: 100%;
     display: flex;
     flex-direction: column;
     gap: .5rem;
+    flex: 1 1 auto;
+    min-height: 0;
 }
 
 .identity-pane__header {

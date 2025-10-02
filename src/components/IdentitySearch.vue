@@ -206,10 +206,11 @@ export default {
 }
 
 .identity-pane {
-  height: 100%;
   display: flex;
   flex-direction: column;
   gap: .5rem;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .identity-pane__header {
@@ -274,6 +275,10 @@ input::placeholder {
   grid-template-columns: 1fr 4fr;
   align-items: start;
   gap: .7rem;
+}
+
+.controls-results > * {
+  min-height: 0;
 }
 
 .controls {
