@@ -24,12 +24,12 @@
     display: flex;
     flex-direction: column;
     gap: 1.4rem;
-    background-color: #333;
+    background-color: #222;
     color: #fff;
     border: 1px solid #444;
     border-radius: 0.5rem;
     padding: 2rem;
-    width: 300px;
+    width: 400px;
     box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
     text-align: center;
     position: relative;
@@ -45,23 +45,30 @@ body {
 </style>
 
 <style>
-.dialog input {
+input {
     width: 100%;
-    padding: 0.7rem;
+    padding: .7rem;
     border: 1px solid #444;
     border-radius: 0.5rem;
     background-color: #222;
     color: #fff;
 }
 
+::placeholder {
+    color: #ccc;
+}
+
 .dialog button {
     width: 100%;
-    padding: 0.7rem;
-    background-color: #444;
+    padding: 0.5rem;
+    background-color: #222;
     color: #fff;
     border: none;
     border-radius: 0.5rem;
+    border: 1px solid #444;
     cursor: pointer;
+    font-weight: bold;
+    font-size: large;
 }
 
 .dialog button:hover {
@@ -81,8 +88,9 @@ select {
   width: 100%;
   border: none;
   border-radius: .5rem;
-  background-color: #444;
-  color: #fff;
-  padding: .4rem;
+  background-color: #222;
+  border: 1px solid #444;
+  color: #ccc;
+  padding: .7rem;
 }
 </style>

@@ -2,11 +2,19 @@
   <DialogBase>
     <div class="input-section">
       <h2>Add Identity</h2>
-      <input v-model.trim="identity.firstName" placeholder="First Name" required />
-      <input v-model.trim="identity.lastName" placeholder="Last Name" required />
 
       <div>
-        <label for="campus">Campus (Optional)</label>
+        <label>First Name</label>
+        <input v-model.trim="identity.firstName" required />
+      </div>
+
+      <div>
+        <label>Last Name</label>
+        <input v-model.trim="identity.lastName" required />
+      </div>
+
+      <div>
+        <label for="campus">Campus</label>
         <select id="campus" v-model="identity.campus">
           <option :value="null"></option>
           <option v-for="option in filterObject.campus" :key="option" :value="option">
@@ -16,7 +24,7 @@
       </div>
 
       <div>
-        <label for="grade">Grade (Optional)</label>
+        <label for="grade">Grade</label>
         <select id="grade" v-model="identity.grade">
           <option :value="null"></option>
           <option v-for="option in filterObject.grade" :key="option" :value="option">
@@ -26,7 +34,7 @@
       </div>
 
       <div>
-        <label for="section">Section (Optional)</label>
+        <label for="section">Section</label>
         <select id="section" v-model="identity.section">
           <option :value="null"></option>
           <option v-for="option in filterObject.section" :key="option" :value="option">
@@ -36,7 +44,7 @@
       </div>
 
       <div>
-        <label for="house">House (Optional)</label>
+        <label for="house">House</label>
         <select id="house" v-model="identity.house">
           <option :value="null"></option>
           <option v-for="option in filterObject.house" :key="option" :value="option">
@@ -44,20 +52,28 @@
           </option>
         </select>
       </div>
-    </div>
 
-    <div class="input-section">
-      <div v-for="(email, index) in identity.contactIds" :key="index" class="email-field">
-        <input v-model="identity.contactIds[index]" placeholder="Contact Email (Optional)" />
-        <button type="button" @click="removeContactEmail(index)">X</button>
+
+      <div>
+        <label>Contact Email</label>
+        <div class="input-section">
+          <div v-for="(email, index) in identity.contactIds" :key="index" class="email-field">
+            <input v-model="identity.contactIds[index]" />
+            <button type="button" @click="removeContactEmail(index)">-</button>
+          </div>
+          <div class="email-field">
+            <div></div>
+            <button type="button" @click="addContactEmail">+</button>
+          </div>
+        </div>
       </div>
-      <button type="button" @click="addContactEmail">Add Contact Email</button>
     </div>
 
     <div class="input-section">
       <StyledButton v-if="this.identity.firstName !== '' && this.identity.lastName !== ''" @click="submitIdentityForm"
-        text-color="#fff" button-color="#39B357" :disabled="loading">{{ loading ? 'Submitting...' : 'Submit' }}</StyledButton>
-      <StyledButton v-else @click="this.$emit('hide-add-identity')" text-color="#fff" button-color="#ff6644">Close
+        text-color="#222" button-color="#39B357" :disabled="loading">{{ loading ? 'Submitting...' : 'Submit' }}
+      </StyledButton>
+      <StyledButton v-else @click="this.$emit('hide-add-identity')" text-color="#222" button-color="#fff">Close
       </StyledButton>
     </div>
   </DialogBase>
@@ -171,7 +187,7 @@ export default {
 
 .email-field {
   display: grid;
-  grid-template-columns: 4fr 1fr;
+  grid-template-columns: 7fr 1fr;
   gap: .5rem;
   justify-content: start;
 }
