@@ -12,18 +12,17 @@ export default {
 
 <style scoped>
 ul {
-    flex: 1 1 auto;
-    min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: .75rem;
+    gap: .7rem;
+    height: 100%;
     list-style: none;
-    background-color: #333;
+    background-color: #222;
     border: 1px solid #444;
     border-radius: 0.5rem;
     margin: 0;
     padding: .7rem;
     padding-bottom: 0;
-    overflow-y: auto; /* Ensure it allows vertical scrolling */
+    overflow-y: auto;
 }
 </style>

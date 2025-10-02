@@ -1,17 +1,33 @@
 <template>
-  <div class="search-bar">
-    <div class="search-input">
-      <input type="text" v-model="searchQuery" placeholder="Search identities..." @input="handleSearch" />
-      <button v-if="searchQuery" class="clear-btn" type="button" @click="clearSearch">
-        Clear
-      </button>
+  <div class="controls-results">
+    <div>
+      <div></div>
+      <div class="identity-pane__header">
+        <span>Active Identities</span>
+        <span>{{ filteredIdentities.length }}</span>
+      </div>
     </div>
 
-    <div class="controls-results">
+    <div>
       <div class="controls">
         <div class="filters">
+          <div class="filter-row">
+            <label>Search</label>
+            <div class="search-bar">
+              <div class="search-input">
+                <input type="text" v-model="searchQuery" @input="handleSearch" />
+                <button v-if="searchQuery" type="button" @click="clearSearch">
+                  X
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+        <div class="filters">
           <div v-for="(values, key) in filterObject" :key="key" class="filter-row">
-            <label :for="key">{{ key }}:</label>
+            <label :for="key">{{ key }}</label>
             <select :id="key" v-model="selectedFiltersOptions[key]">
               <option></option>
               <option v-for="option in values" :key="option" :value="option">
@@ -28,30 +44,16 @@
           <label class="right" for="z-a">z - a</label>
         </div>
 
-        <StyledButton
-          @click="clearDropdownFilters"
-          text-color="#fff"
-          button-color="#444"
-          :disabled="!hasActiveFilters"
-        >
+        <StyledButton @click="clearDropdownFilters" text-color="#222" button-color="#fff" :disabled="!hasActiveFilters">
           Clear Filters
         </StyledButton>
 
-        <StyledButton
-          @click="addAllFromFilter"
-          text-color="#fff"
-          button-color="#444"
-          :disabled="!canAddAllToSession"
-        >
+        <StyledButton @click="addAllFromFilter" text-color="#222" button-color="#fff" :disabled="!canAddAllToSession">
           Add All To Session
         </StyledButton>
       </div>
 
       <div class="identity-pane">
-        <div class="identity-pane__header">
-          <span>Available Identities</span>
-          <span>{{ filteredIdentities.length }}</span>
-        </div>
         <IdentityCardPane>
           <IdentityCard v-for="identity in filteredIdentities" :key="identity.id" :identity="identity"
             :image="require('@/assets/plus-circle.svg')" :addIdentity="true"
@@ -208,19 +210,14 @@ export default {
 .identity-pane {
   display: flex;
   flex-direction: column;
-  gap: .5rem;
-  flex: 1 1 auto;
-  min-height: 0;
+  height: 100%;
 }
 
 .identity-pane__header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: .35rem .7rem;
-  background-color: #222;
-  border: 1px solid #444;
-  border-radius: .5rem;
+  padding: 0 1rem .25rem 1rem;
   font-weight: bold;
   text-transform: uppercase;
   font-size: .75rem;
@@ -230,54 +227,73 @@ export default {
 
 .search-input {
   position: relative;
+  display: flex;
+  flex-direction: column;
   height: 8%;
+}
+
+.filters>label {
+  display: block;
+  margin-bottom: .4rem;
+  color: #ccc;
+  text-transform: capitalize;
+  font-size: small;
 }
 
 .search-input input {
   width: 100%;
   height: 100%;
-  border: none;
   border-radius: 0.5rem;
-  background-color: #333;
+  background-color: #222;
   border: 1px solid #444;
   color: #fff;
-  padding: .7rem 2.2rem .7rem .7rem;
+  padding: .4rem;
 }
 
 input::placeholder {
   color: #ccc;
 }
 
-.clear-btn {
+.search-input button {
   position: absolute;
-  right: .4rem;
+  right: .1rem;
   top: 50%;
   transform: translateY(-50%);
   border: none;
-  background: #444;
-  color: #fff;
+  background: #2220;
+  /* border: 1px solid #444; */
+  color: #ccc;
   padding: .4rem;
-  border-radius: .5rem;
+  border-radius: .45rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
+  /* font-weight: bold; */
 }
 
-.clear-btn:hover {
-  background: #555;
+.search-input button:hover {
+  background: #333;
 }
 
 .controls-results {
-  height: 89.5%;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.controls-results>div {
   display: grid;
-  grid-template-columns: 1fr 4fr;
+  grid-template-columns: 1fr 3fr;
   align-items: start;
   gap: .7rem;
 }
 
-.controls-results > * {
+.controls-results>div:last-child {
+  height: 95%;
+}
+
+.controls-results>div>* {
   min-height: 0;
 }
 
@@ -291,7 +307,7 @@ input::placeholder {
   display: flex;
   flex-direction: column;
   gap: .7rem;
-  background-color: #333;
+  background-color: #222;
   border-radius: .5rem;
   border: 1px solid #444;
   padding: .7rem;
@@ -300,16 +316,18 @@ input::placeholder {
 .filter-row label {
   display: block;
   margin-bottom: .4rem;
-  color: #fff;
+  color: #ccc;
   text-transform: capitalize;
+  font-size: small;
 }
 
 .filter-row select {
   width: 100%;
   border: none;
   border-radius: .5rem;
-  background-color: #444;
-  color: #fff;
+  background-color: #222;
+  border: 1px solid #444;
+  color: #ccc;
   padding: .4rem;
 }
 
@@ -329,8 +347,8 @@ input::placeholder {
   text-align: center;
   font-size: .7rem;
   padding: 0.3rem;
-  background-color: #444;
-  color: #fff;
+  background-color: #222;
+  color: #ccc;
   cursor: pointer;
 }
 
@@ -347,6 +365,6 @@ input::placeholder {
 }
 
 .rocker-switch input[type="radio"]:checked+label {
-  background-color: #555;
+  background-color: #333;
 }
 </style>

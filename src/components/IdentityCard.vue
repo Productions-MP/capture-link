@@ -62,9 +62,9 @@ li {
     justify-content: space-between;
     padding: .7rem;
     border-radius: 0.5rem;
-    background-color: #333;
+    background-color: #444;
     color: #fff;
-    border: 1px solid #444;
+    border: 1px solid #666;
 }
 
 h2 {

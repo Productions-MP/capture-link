@@ -1,9 +1,5 @@
 <template>
-  <button
-    :style="buttonStyles"
-    class="styled-button"
-    :disabled="disabled"
-  >
+  <button :style="buttonStyles" class="styled-button" :disabled="disabled">
     <span v-if="icon" class="icon">{{ icon }}</span>
     <slot></slot>
   </button>
@@ -41,10 +37,10 @@ export default {
   computed: {
     buttonStyles() {
       const backgroundColor = this.disabled
-        ? this.disabledButtonColor || this.adjustColor(this.buttonColor, 0.65)
+        ? this.disabledButtonColor || this.adjustColor(this.buttonColor, 0.133)
         : this.buttonColor;
       const color = this.disabled
-        ? this.disabledTextColor || this.adjustColor(this.textColor, 0.8)
+        ? this.disabledTextColor || this.adjustColor(this.textColor, 1)
         : this.textColor;
 
       return {

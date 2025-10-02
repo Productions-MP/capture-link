@@ -195,12 +195,12 @@ export default {
 }
 
 .top-section {
-  height: 44.5%;
-  flex-shrink: 0;
+  height: 54.5%;
+  flex: 0 0 auto;
 }
 
 .bottom-section {
-  height: 54.5%;
-  flex-shrink: 0;
+  height: 44.5%;
+  flex: 0 0 auto;
 }
 </style>
