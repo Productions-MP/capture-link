@@ -10,10 +10,12 @@
                     {{ this.isDisabled ? 'Ending...' : 'End Session' }} ({{ this.activeIdentities.length }})
                 </StyledButton>
 
-                <StyledButton v-if="!isSessionActive" @click="clearSession" text-color="#fff" button-color="#444">
+                <StyledButton v-if="!isSessionActive" @click="clearSession" :disabled="!canClearSession" text-color="#fff" button-color="#444">
                     Clear Session
                 </StyledButton>
+            </div>
 
+            <div class="secondary-actions">
                 <StyledButton v-if="!isSessionActive" @click="this.$emit('show-add-identity')" text-color="#fff" button-color="#444">
                     Create Identity
                 </StyledButton>
@@ -21,11 +23,11 @@
                 <StyledButton v-if="!isSessionActive" @click="handleRefresh()" text-color="#fff" button-color="#444">
                     Refresh Page
                 </StyledButton>
-            </div>
 
-            <StyledButton @click="logOut()" text-color="#fff" button-color="#444">
-                Log Out
-            </StyledButton>
+                <StyledButton @click="logOut()" text-color="#fff" button-color="#444">
+                    Log Out
+                </StyledButton>
+            </div>
         </div>
         <IdentityCardPane ref="identityPane">
             <IdentityCard v-for="identity in activeIdentities" :key="identity.firstName + identity.lastName"
@@ -60,6 +62,11 @@ export default {
         IdentityCard,
         IdentityCardPane,
         StyledButton,
+    },
+    computed: {
+        canClearSession() {
+            return !this.isSessionActive && this.activeIdentities.length > 0;
+        },
     },
     watch: {
         activeIdentities: {
