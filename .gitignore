@@ -2,7 +2,6 @@
 node_modules
 /dist
 
-
 # local env files
 .env.local
 .env.*.local
@@ -24,6 +23,3 @@ pnpm-debug.log*
 
 # Local Netlify folder
 .netlify
-
-developer.txt
-src/assets/private

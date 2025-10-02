@@ -1,11 +1,17 @@
 <template>
     <BaseDialog :class="{ shake: isShaking }">
         <h2>Login Required</h2>
-        <input ref="username" placeholder="Username" />
-        <input ref="password" type="password" placeholder="Password" />
+        <div>
+            <label>Username</label>
+            <input ref="username" />
+        </div>
+        <div>
+            <label>Password</label>
+            <input ref="password" type="password" />
+        </div>
         <p v-if="hasNetworkError" class="error">A network error occurred. Please try again.</p>
-        <StyledButton @click="handleLogInClick" :text-color="isShaking ? '#fff' : '#fff'"
-            :button-color="isShaking ? '#ff4d4d' : '#39B357'">
+        <StyledButton @click="handleLogInClick" :text-color="isShaking ? '#222' : '#222'"
+            :button-color="isShaking ? '#ff6644' : '#fff'">
             Login
         </StyledButton>
     </BaseDialog>
@@ -62,7 +68,7 @@ export default {
 }
 
 .error {
-    color: #ff4d4d;
+    color: #ff6644;
     margin: 0.5rem 0;
 }
 

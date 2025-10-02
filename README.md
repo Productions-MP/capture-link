@@ -1,26 +1,6 @@
-# capture-link
+# Capture Link
 
-## Project setup
-```
-npm install
-```
-
-### Compiles and hot-reloads for development
-```
-npm run serve
-```
-
-### Compiles and minifies for production
-```
-npm run build
-```
-
-### Lints and fixes files
-```
-npm run lint
-```
-
-### Netlify Functions & Environment configuration
+## Netlify Functions & Environment configuration
 
 The application now relies on Netlify Functions for all data access. Configure the following
 environment variables (for example via Netlify UI or an `.env` file when using `netlify dev`):
