@@ -43,11 +43,16 @@
           </div>
         </div>
 
-        <StyledButton @click="clearDropdownFilters" text-color="#222" button-color="#fff" :disabled="!hasActiveFilters">
+        <StyledButton @click="clearDropdownFilters" text-color="#0e1430" button-color="#f4f6ff"
+          :disabled="!hasActiveFilters">
           Clear Filters
         </StyledButton>
 
-        <StyledButton @click="addAllFromFilter" text-color="#222" button-color="#fff" :disabled="!canAddAllToSession">
+        <StyledButton @click="addAllFromFilter" text-color="#ffffff"
+          button-color="linear-gradient(135deg, #ff85d8 0%, #7a7dff 45%, #46d7ff 100%)"
+          :disabled-button-color="'rgba(38, 46, 84, 0.75)'"
+          :disabled-text-color="'rgba(189, 201, 255, 0.6)'"
+          :disabled="!canAddAllToSession">
           Add All To Session
         </StyledButton>
       </div>
@@ -216,12 +221,12 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 1rem .25rem 1rem;
-  font-weight: bold;
+  padding: 0 1rem .75rem 1rem;
+  font-weight: 600;
   text-transform: uppercase;
   font-size: .75rem;
-  letter-spacing: .05em;
-  color: #ccc;
+  letter-spacing: .08em;
+  color: rgba(218, 225, 255, 0.75);
 }
 
 .search-input {
@@ -242,15 +247,16 @@ export default {
 .search-input input {
   width: 100%;
   height: 100%;
-  border-radius: 0.5rem;
-  background-color: #222;
-  border: 1px solid #444;
-  color: #fff;
-  padding: .4rem;
+  border-radius: 0.85rem;
+  background-color: rgba(19, 26, 50, 0.85);
+  border: 1px solid rgba(126, 140, 255, 0.35);
+  color: #f6f7ff;
+  padding: .65rem .75rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 input::placeholder {
-  color: #ccc;
+  color: rgba(202, 211, 255, 0.55);
 }
 
 .search-input button {
@@ -259,20 +265,18 @@ input::placeholder {
   top: 50%;
   transform: translateY(-50%);
   border: none;
-  background: #2220;
-  /* border: 1px solid #444; */
-  color: #ccc;
-  padding: .4rem;
-  border-radius: .45rem;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(214, 221, 255, 0.7);
+  padding: .35rem .55rem;
+  border-radius: .6rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  /* font-weight: bold; */
 }
 
 .search-input button:hover {
-  background: #333;
+  background: rgba(120, 132, 255, 0.18);
 }
 
 .controls-results {
@@ -306,27 +310,29 @@ input::placeholder {
   display: flex;
   flex-direction: column;
   gap: .7rem;
-  background-color: #222;
-  border-radius: .5rem;
-  border: 1px solid #444;
-  padding: .7rem;
+  background: linear-gradient(160deg, rgba(13, 19, 42, 0.8), rgba(9, 12, 30, 0.65));
+  border-radius: 1rem;
+  border: 1px solid rgba(134, 150, 255, 0.25);
+  padding: .9rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(18px);
 }
 
 .filter-row label {
   display: block;
   margin-bottom: .4rem;
-  color: #ccc;
+  color: rgba(222, 229, 255, 0.75);
   text-transform: capitalize;
   font-size: small;
 }
 
 .filter-row select {
   width: 100%;
-  border-radius: .5rem;
-  background-color: #222;
-  border: 1px solid #444;
-  color: #ccc;
-  padding: .4rem;
+  border-radius: .75rem;
+  background-color: rgba(17, 22, 42, 0.8);
+  border: 1px solid rgba(94, 109, 188, 0.35);
+  color: #f2f4ff;
+  padding: .55rem;
 }
 
 .rocker-switch {
@@ -344,9 +350,10 @@ input::placeholder {
   width: 50%;
   text-align: center;
   font-size: .7rem;
-  padding: 0.3rem;
-  background-color: #222;
-  color: #ccc;
+  padding: 0.45rem;
+  background: rgba(18, 24, 50, 0.75);
+  border: 1px solid rgba(120, 136, 240, 0.3);
+  color: rgba(216, 223, 255, 0.8);
   cursor: pointer;
 }
 
@@ -363,6 +370,7 @@ input::placeholder {
 }
 
 .rocker-switch input[type="radio"]:checked+label {
-  background-color: #333;
+  background: linear-gradient(135deg, rgba(126, 155, 255, 0.85), rgba(65, 215, 255, 0.65));
+  color: #091021;
 }
 </style>

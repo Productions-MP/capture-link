@@ -43,17 +43,24 @@ export default {
         ? this.disabledTextColor || this.adjustColor(this.textColor, 1)
         : this.textColor;
 
+      const background = backgroundColor;
+      const isGradient = typeof background === 'string' && background.includes('gradient');
+
       return {
         color,
-        backgroundColor,
-        border: 'none',
-        padding: '.5rem .7rem',
-        borderRadius: '.5rem',
+        background,
+        backgroundColor: isGradient ? 'transparent' : background,
+        border: isGradient ? '1px solid rgba(255, 255, 255, 0.08)' : 'none',
+        padding: '.65rem .9rem',
+        borderRadius: '.85rem',
         cursor: this.disabled ? 'not-allowed' : 'pointer',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        pointerEvents: this.disabled ? 'none' : 'auto'
+        pointerEvents: this.disabled ? 'none' : 'auto',
+        boxShadow: isGradient && !this.disabled ? '0 18px 40px rgba(108, 126, 255, 0.35)' : 'none',
+        transition: 'transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease, color 0.3s ease',
+        backdropFilter: isGradient ? 'blur(6px)' : 'none'
       };
     }
   },
@@ -99,17 +106,19 @@ export default {
 <style scoped>
 .styled-button {
   width: 100%;
-  transition: background-color 0.3s, color 0.3s;
-  font-size: .9rem;
+  transition: transform 0.3s ease, box-shadow 0.3s ease, filter 0.3s ease;
+  font-size: .95rem;
   font-weight: bold;
   text-transform: capitalize;
 }
 
 .styled-button:hover {
-  filter: brightness(0.9);
+  filter: brightness(1.02);
+  transform: translateY(-2px);
 }
 
 .styled-button:disabled {
   filter: none;
+  transform: none;
 }
 </style>
