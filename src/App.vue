@@ -1,184 +1,85 @@
 <template>
-  <DialogLogin v-if="this.showLogIn" @authenticated="handleGotSession" />
-
-  <DialogAddIdentity v-if="this.showAddIdentity" :filterObject="this.identitiesFilterObject"
-    @identity-created="handleIdentityCreated" @hide-add-identity="this.showAddIdentity = false"
-    @session-expired="handleSessionExpired" />
-
-  <div class="top-section">
-    <identity-search :identities="identities" :filterObject="identitiesFilterObject"
-      :isSessionActive="this.isSessionActive" @add-identity="addIdentityToActive"
-      @add-all-from-filter="addAllFromFilter" />
-  </div>
-
-  <div class="bottom-section">
-    <session-manager :activeIdentities="activeIdentities" :isSessionActive="this.isSessionActive" :isDisabled="this.isDisabled"
-      @start-session="startSession" @end-session="endSession" @remove-identity="removeIdentityFromActive"
-      @clear-identities="clearIdentitiesFromActive" @show-add-identity="this.showAddIdentity = true" />
+  <div id="app">
+    <header class="app-header">
+      <h1 class="app-title">Capture Link</h1>
+      <nav class="app-nav">
+        <button type="button" class="nav-link" :class="{ active: activePage === 'sessions' }"
+          @click="navigate('sessions')">Session Manager</button>
+        <button type="button" class="nav-link" :class="{ active: activePage === 'timeline' }"
+          @click="navigate('timeline')">Timeline</button>
+      </nav>
+    </header>
+    <main class="app-main">
+      <component :is="currentComponent" class="app-view" />
+    </main>
   </div>
 </template>
 
 <script>
-import {
-  hasActiveSession,
-  fetchIdentities,
-  startCaptureLinkSession,
-  endCaptureLinkSession,
-  getObjectArrayFilterObject,
-  clearSessionCookies,
-  UnauthorizedError
-} from '@/utils/app'
-import DialogLogin from '@/components/DialogLogin.vue';
-import DialogAddIdentity from '@/components/DialogAddIdentity.vue';
-import IdentitySearch from "./components/IdentitySearch.vue";
-import SessionManager from "./components/SessionManager.vue";
+import CaptureSessionsView from '@/views/CaptureSessionsView.vue';
+import TimelineView from '@/views/TimelineView.vue';
 
+function getHashPage() {
+  if (typeof window === 'undefined') {
+    return 'sessions';
+  }
+  const raw = window.location.hash ? window.location.hash.replace('#', '').toLowerCase() : '';
+  return raw === 'timeline' ? 'timeline' : 'sessions';
+}
 
 export default {
+  name: 'App',
+  components: {
+    CaptureSessionsView,
+    TimelineView,
+  },
   data() {
     return {
-      showLogIn: !hasActiveSession(),
-      showAddIdentity: false,
-      identities: [],
-      activeIdentities: [],
-      isSessionActive: false,
-      isDisabled: false,
-      sessionId: null,
+      activePage: getHashPage(),
     };
   },
-  async created() {
-    await this.loadIdentities()
-  },
-  components: {
-    IdentitySearch,
-    SessionManager,
-    DialogLogin,
-    DialogAddIdentity
-  },
   computed: {
-    identitiesFilterObject() {
-      const allKnownIdentities = [
-        ...this.identities,
-        ...this.activeIdentities
-      ]
-
-      return getObjectArrayFilterObject(allKnownIdentities)
-    }
+    currentComponent() {
+      return this.activePage === 'timeline' ? TimelineView : CaptureSessionsView;
+    },
   },
   methods: {
-    async loadIdentities() {
-      if (!hasActiveSession()) {
-        this.showLogIn = true
-        return
+    navigate(page) {
+      if (page !== 'sessions' && page !== 'timeline') {
+        return;
       }
-
-      try {
-        this.identities = await fetchIdentities()
-      } catch (error) {
-        this.handlePotentialUnauthorized(error)
+      this.activePage = page;
+    },
+    syncHash() {
+      if (typeof window === 'undefined') {
+        return;
+      }
+      const desiredHash = this.activePage === 'timeline' ? '#timeline' : '';
+      if (window.location.hash !== desiredHash) {
+        window.location.hash = desiredHash;
       }
     },
-    getObjectArrayFilterObject,
-    async handleGotSession() {
-      this.showLogIn = false
-      await this.loadIdentities()
-    },
-    addIdentityToActive(identity) {
-      if (!this.isSessionActive) {
-        const index = this.identities.findIndex(
-          (aI) => aI.id === identity.id
-        );
-        if (index !== -1) {
-          this.activeIdentities.push(this.identities.splice(index, 1)[0]);
-        }
+    handleHashChange() {
+      const page = getHashPage();
+      if (page !== this.activePage) {
+        this.activePage = page;
       }
     },
-    removeIdentityFromActive(identity) {
-      if (!this.isSessionActive) {
-        const index = this.activeIdentities.findIndex(
-          (aI) => aI.id === identity.id
-        );
-        if (index !== -1) {
-          this.identities.push(this.activeIdentities.splice(index, 1)[0]);
-        }
-      }
+  },
+  watch: {
+    activePage() {
+      this.syncHash();
     },
-    addAllFromFilter(filteredIdentities) {
-      if (!this.isSessionActive) {
-        const toAdd = [...filteredIdentities];
-        toAdd.forEach(identity => {
-          const index = this.identities.findIndex(
-            (aI) => aI.id === identity.id
-          );
-          if (index !== -1) {
-            this.activeIdentities.push(this.identities.splice(index, 1)[0]);
-          }
-        });
-      }
-    },
-    clearIdentitiesFromActive() {
-      if (!this.isSessionActive) {
-        this.identities.push(...this.activeIdentities);
-        this.activeIdentities = [];
-      }
-    },
-    async startSession() {
-      if (this.activeIdentities.length === 0) {
-        return
-      }
-
-      this.isDisabled = true
-      try {
-        this.sessionId = await startCaptureLinkSession(this.activeIdentities)
-        if (this.sessionId) {
-          this.isSessionActive = true
-        }
-      } catch (error) {
-        this.handlePotentialUnauthorized(error)
-      } finally {
-        this.isDisabled = false
-      }
-    },
-    async endSession() {
-      if (!this.sessionId) {
-        return
-      }
-
-      this.isDisabled = true
-      try {
-        const isSuccess = await endCaptureLinkSession(this.sessionId)
-        if (isSuccess) {
-          this.sessionId = null
-          this.isSessionActive = false
-        }
-      } catch (error) {
-        this.handlePotentialUnauthorized(error)
-      } finally {
-        this.isDisabled = false
-      }
-    },
-    handleIdentityCreated(identity) {
-      this.activeIdentities.push(identity)
-      this.showAddIdentity = false
-    },
-    handlePotentialUnauthorized(error) {
-      if (error instanceof UnauthorizedError) {
-        this.handleSessionExpired()
-      } else {
-        console.error(error)
-      }
-    },
-    handleSessionExpired() {
-      clearSessionCookies()
-      this.showLogIn = true
-      this.showAddIdentity = false
-      this.isSessionActive = false
-      this.isDisabled = false
-      this.sessionId = null
-      if (this.activeIdentities.length > 0) {
-        this.identities = [...this.activeIdentities, ...this.identities]
-        this.activeIdentities = []
-      }
+  },
+  mounted() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('hashchange', this.handleHashChange);
+      this.syncHash();
+    }
+  },
+  beforeUnmount() {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('hashchange', this.handleHashChange);
     }
   },
 };
@@ -187,20 +88,66 @@ export default {
 <style>
 #app {
   height: 100vh;
-  font-family: sans-serif;
   display: flex;
   flex-direction: column;
-  gap: 1%;
-  padding: 0.7rem;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f5f5f7;
+  color: #1f2933;
 }
 
-.top-section {
-  height: 54.5%;
-  flex: 0 0 auto;
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #1f2937, #111827);
+  color: #f9fafb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-.bottom-section {
-  height: 44.5%;
-  flex: 0 0 auto;
+.app-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.app-nav {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.nav-link {
+  color: #e5e7eb;
+  text-decoration: none;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.nav-link.active {
+  background-color: #f9fafb;
+  color: #111827;
+}
+
+.app-main {
+  flex: 1 1 auto;
+  padding: 1.25rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-view {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
 }
 </style>

@@ -1,0 +1,210 @@
+<template>
+  <div class="capture-sessions">
+    <DialogLogin v-if="this.showLogIn" @authenticated="handleGotSession" />
+
+    <DialogAddIdentity v-if="this.showAddIdentity" :filterObject="this.identitiesFilterObject"
+      @identity-created="handleIdentityCreated" @hide-add-identity="this.showAddIdentity = false"
+      @session-expired="handleSessionExpired" />
+
+    <div class="top-section">
+      <identity-search :identities="identities" :filterObject="identitiesFilterObject"
+        :isSessionActive="this.isSessionActive" @add-identity="addIdentityToActive"
+        @add-all-from-filter="addAllFromFilter" />
+    </div>
+
+    <div class="bottom-section">
+      <session-manager :activeIdentities="activeIdentities" :isSessionActive="this.isSessionActive" :isDisabled="this.isDisabled"
+        @start-session="startSession" @end-session="endSession" @remove-identity="removeIdentityFromActive"
+        @clear-identities="clearIdentitiesFromActive" @show-add-identity="this.showAddIdentity = true" />
+    </div>
+  </div>
+</template>
+
+<script>
+import {
+  hasActiveSession,
+  fetchIdentities,
+  startCaptureLinkSession,
+  endCaptureLinkSession,
+  getObjectArrayFilterObject,
+  clearSessionCookies,
+  UnauthorizedError
+} from '@/utils/app'
+import DialogLogin from '@/components/DialogLogin.vue';
+import DialogAddIdentity from '@/components/DialogAddIdentity.vue';
+import IdentitySearch from "@/components/IdentitySearch.vue";
+import SessionManager from "@/components/SessionManager.vue";
+
+export default {
+  name: 'CaptureSessionsView',
+  data() {
+    return {
+      showLogIn: !hasActiveSession(),
+      showAddIdentity: false,
+      identities: [],
+      activeIdentities: [],
+      isSessionActive: false,
+      isDisabled: false,
+      sessionId: null,
+    };
+  },
+  async created() {
+    await this.loadIdentities()
+  },
+  components: {
+    IdentitySearch,
+    SessionManager,
+    DialogLogin,
+    DialogAddIdentity
+  },
+  computed: {
+    identitiesFilterObject() {
+      const allKnownIdentities = [
+        ...this.identities,
+        ...this.activeIdentities
+      ]
+
+      return getObjectArrayFilterObject(allKnownIdentities)
+    }
+  },
+  methods: {
+    async loadIdentities() {
+      if (!hasActiveSession()) {
+        this.showLogIn = true
+        return
+      }
+
+      try {
+        this.identities = await fetchIdentities()
+      } catch (error) {
+        this.handlePotentialUnauthorized(error)
+      }
+    },
+    getObjectArrayFilterObject,
+    async handleGotSession() {
+      this.showLogIn = false
+      await this.loadIdentities()
+    },
+    addIdentityToActive(identity) {
+      if (!this.isSessionActive) {
+        const index = this.identities.findIndex(
+          (aI) => aI.id === identity.id
+        );
+        if (index !== -1) {
+          this.activeIdentities.push(this.identities.splice(index, 1)[0]);
+        }
+      }
+    },
+    removeIdentityFromActive(identity) {
+      if (!this.isSessionActive) {
+        const index = this.activeIdentities.findIndex(
+          (aI) => aI.id === identity.id
+        );
+        if (index !== -1) {
+          this.identities.push(this.activeIdentities.splice(index, 1)[0]);
+        }
+      }
+    },
+    addAllFromFilter(filteredIdentities) {
+      if (!this.isSessionActive) {
+        const toAdd = [...filteredIdentities];
+        toAdd.forEach(identity => {
+          const index = this.identities.findIndex(
+            (aI) => aI.id === identity.id
+          );
+          if (index !== -1) {
+            this.activeIdentities.push(this.identities.splice(index, 1)[0]);
+          }
+        });
+      }
+    },
+    clearIdentitiesFromActive() {
+      if (!this.isSessionActive) {
+        this.identities.push(...this.activeIdentities);
+        this.activeIdentities = [];
+      }
+    },
+    async startSession() {
+      if (this.activeIdentities.length === 0) {
+        return
+      }
+
+      this.isDisabled = true
+      try {
+        this.sessionId = await startCaptureLinkSession(this.activeIdentities)
+        if (this.sessionId) {
+          this.isSessionActive = true
+        }
+      } catch (error) {
+        this.handlePotentialUnauthorized(error)
+      } finally {
+        this.isDisabled = false
+      }
+    },
+    async endSession() {
+      if (!this.sessionId) {
+        return
+      }
+
+      this.isDisabled = true
+      try {
+        const isSuccess = await endCaptureLinkSession(this.sessionId)
+        if (isSuccess) {
+          this.sessionId = null
+          this.isSessionActive = false
+        }
+      } catch (error) {
+        this.handlePotentialUnauthorized(error)
+      } finally {
+        this.isDisabled = false
+      }
+    },
+    handleIdentityCreated(identity) {
+      this.activeIdentities.push(identity)
+      this.showAddIdentity = false
+    },
+    handlePotentialUnauthorized(error) {
+      if (error instanceof UnauthorizedError) {
+        this.handleSessionExpired()
+      } else {
+        console.error(error)
+      }
+    },
+    handleSessionExpired() {
+      clearSessionCookies()
+      this.showLogIn = true
+      this.showAddIdentity = false
+      this.isSessionActive = false
+      this.isDisabled = false
+      this.sessionId = null
+      if (this.activeIdentities.length > 0) {
+        this.identities = [...this.activeIdentities, ...this.identities]
+        this.activeIdentities = []
+      }
+    }
+  },
+};
+</script>
+
+<style scoped>
+.capture-sessions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.75rem;
+  background: #ffffff;
+  border-radius: 1rem;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.top-section {
+  height: 54.5%;
+  flex: 0 0 auto;
+}
+
+.bottom-section {
+  flex: 1 1 auto;
+}
+</style>
