@@ -10,8 +10,10 @@
   "dependencies": {
     "core-js": "^3.45.0",
     "js-cookie": "^3.0.5",
-    "mongodb": "^6.9.0",
     "vue": "^3.5.18"
+  },
+  "optionalDependencies": {
+    "mongodb": "^6.9.0"
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",

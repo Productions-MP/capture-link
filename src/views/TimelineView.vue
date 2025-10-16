@@ -1,21 +1,21 @@
 <template>
-  <div class="timeline-view">
+  <div class="timeline-page">
     <DialogLogin v-if="showLogin" @authenticated="handleAuthenticated" />
 
-    <section class="timeline-card">
-      <header class="timeline-card__header">
-        <div>
-          <h2>Session Timeline</h2>
-          <p>Review capture sessions within a date range and adjust their timing, identities, and images.</p>
+    <section class="timeline-shell" v-else>
+      <header class="timeline-toolbar">
+        <div class="toolbar-titles">
+          <h1>Session timeline</h1>
+          <p>Browse capture sessions within a custom window and adjust timing, identities, and images in context.</p>
         </div>
-        <form class="range-form" @submit.prevent="loadSessions">
+        <form class="toolbar-range" @submit.prevent="loadSessions()">
           <label>
-            <span>Start</span>
-            <input type="datetime-local" v-model="rangeStart" required />
+            <span>Range start</span>
+            <input type="datetime-local" v-model="rangeStart" @change="handleRangeInput" required />
           </label>
           <label>
-            <span>End</span>
-            <input type="datetime-local" v-model="rangeEnd" required />
+            <span>Range end</span>
+            <input type="datetime-local" v-model="rangeEnd" @change="handleRangeInput" required />
           </label>
           <button type="submit" :disabled="loading">
             <span v-if="loading">Loading…</span>
@@ -24,119 +24,260 @@
         </form>
       </header>
 
+      <section class="timeline-range-summary">
+        <div class="range-summary__row">
+          <strong>Local</strong>
+          <span>{{ formatDisplay(rangeStartDate) }}</span>
+          <span>→</span>
+          <span>{{ formatDisplay(rangeEndDate) }}</span>
+        </div>
+        <div class="range-summary__row">
+          <strong>UTC</strong>
+          <span>{{ formatUtc(rangeStartDate) }}</span>
+          <span>→</span>
+          <span>{{ formatUtc(rangeEndDate) }}</span>
+        </div>
+      </section>
+
       <p v-if="errorMessage" class="alert alert--error">{{ errorMessage }}</p>
       <p v-if="successMessage" class="alert alert--success">{{ successMessage }}</p>
 
-      <div v-if="loading" class="empty-state">Fetching sessions…</div>
-      <div v-else-if="sessions.length === 0" class="empty-state">
-        No sessions found in this range. Try expanding the date window.
+      <div v-if="loading" class="timeline-empty">Fetching sessions…</div>
+      <div v-else-if="timelineSessions.length === 0" class="timeline-empty">
+        No sessions found in this window. Try expanding the range or checking your filters.
       </div>
 
-      <div v-else class="timeline-chart" role="list">
-        <div class="timeline-axis">
-          <span>{{ formatDisplay(rangeStartDate) }}</span>
-          <span>{{ formatDisplay(rangeEndDate) }}</span>
-        </div>
-        <div class="timeline-rows">
-          <button type="button" v-for="session in sessions" :key="session.id" role="listitem"
-            class="timeline-row" :class="{ 'timeline-row--active': session.id === selectedSessionId }"
-            @click="selectSession(session)">
-            <div class="timeline-row__header">
-              <div>
-                <h3>Session</h3>
-                <p>{{ formatSessionWindow(session) }}</p>
-              </div>
-              <span class="timeline-row__meta">{{ session.images.length }} images · {{ session.identityIds.length }} identities</span>
+      <div v-else class="timeline-canvas" ref="timelineCanvas" @mouseleave="schedulePopoverClose">
+        <div class="timeline-scroll" :style="{ width: timelineWidth + 'px', height: timelineHeight + 'px' }">
+          <div class="timeline-axis" :style="{ height: axisHeight + 'px' }">
+            <div
+              v-for="tick in axisTicks"
+              :key="tick.iso"
+              class="timeline-axis__tick"
+              :style="{ left: tick.position + 'px' }"
+            >
+              <span class="axis-label axis-label--local">{{ tick.local }}</span>
+              <span class="axis-label axis-label--utc">{{ tick.utc }}</span>
             </div>
-            <div class="timeline-track">
-              <div class="session-block" :style="getSessionBlockStyle(session)"></div>
-              <div v-for="image in session.images" :key="image.id" class="image-marker"
-                :style="getImageMarkerStyle(image)">
-                <span class="image-marker__tooltip">
-                  <strong>{{ image.filename }}</strong>
-                  <small>{{ formatDisplay(image.capturedAt) }}</small>
-                </span>
-              </div>
+          </div>
+
+          <div class="timeline-body" :style="{ top: axisHeight + 'px', height: bodyHeight + 'px' }">
+            <div
+              v-for="session in timelineSessions"
+              :key="session.id"
+              class="timeline-session-block"
+              :class="{ 'timeline-session-block--active': popover.sessionId === session.id }"
+              :style="getSessionBlockStyle(session)"
+              @mouseenter="openSessionPopover(session, $event)"
+              @mouseleave="schedulePopoverClose"
+            >
+              <span class="session-block__label">{{ sessionLabel(session) }}</span>
             </div>
-            <div class="timeline-identities">
-              <span v-for="identity in session.identities" :key="identity.id" class="identity-chip">
-                {{ identity.fullName }}
+
+            <button
+              v-for="marker in imageMarkers"
+              :key="marker.key"
+              type="button"
+              class="timeline-image-marker"
+              :class="{ 'timeline-image-marker--active': popover.focusImageId === marker.image.id }"
+              :style="getImageMarkerStyle(marker)"
+              @mouseenter="openImagePopover(marker.session, marker.image, $event)"
+              @mouseleave="schedulePopoverClose"
+            >
+              <span class="marker-dot"></span>
+              <span class="marker-tooltip">
+                <strong>{{ marker.image.filename }}</strong>
+                <span>Local: {{ formatDisplay(marker.image.capturedAt) }}</span>
+                <span>UTC: {{ formatUtc(marker.image.capturedAt) }}</span>
               </span>
-            </div>
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <section v-if="selectedSessionForm" class="timeline-card">
-      <header class="timeline-card__header">
-        <div>
-          <h2>Edit Session</h2>
-          <p>Adjust the selected session and update associated images.</p>
-        </div>
-      </header>
-
-      <form class="editor-form" @submit.prevent="saveSessionEdits">
-        <div class="form-grid">
-          <label>
-            <span>Session start</span>
-            <input type="datetime-local" v-model="selectedSessionForm.startLocal" required />
-          </label>
-          <label>
-            <span>Session end</span>
-            <input type="datetime-local" v-model="selectedSessionForm.endLocal" required />
-          </label>
-        </div>
-
-        <label class="full-width">
-          <span>Identities in session</span>
-          <select multiple v-model="selectedSessionForm.identityIds">
-            <option v-for="identity in identityOptions" :key="identity.id" :value="identity.id">
-              {{ formatIdentityOption(identity) }}
-            </option>
-          </select>
-        </label>
-
-        <div class="images-editor">
-          <div class="images-editor__header">
-            <h3>Images</h3>
-            <p>Toggle which images belong to this session and adjust their timestamps.</p>
+            </button>
           </div>
+        </div>
 
-          <div v-if="selectedSessionForm.images.length === 0" class="empty-state">
-            This session does not currently have any images.
-          </div>
-
-          <div v-else class="image-list">
-            <div class="image-row" v-for="imageForm in selectedSessionForm.images" :key="imageForm.id">
-              <label class="image-row__include">
-                <input type="checkbox" v-model="imageForm.included" />
-                <span>Include</span>
-              </label>
-              <div class="image-row__details">
-                <span class="image-row__name">{{ imageForm.filename }}</span>
-                <span class="image-row__path">{{ imageForm.directoryPath }}</span>
+        <transition name="fade">
+          <div
+            v-if="popover.sessionId"
+            class="timeline-popover"
+            :style="popoverStyle"
+            @mouseenter="clearPopoverTimer"
+            @mouseleave="schedulePopoverClose"
+          >
+            <div class="popover-header">
+              <div>
+                <h2>Session details</h2>
+                <p>{{ popoverSubtitle }}</p>
               </div>
-              <input type="datetime-local" v-model="imageForm.timestampLocal" />
+              <button type="button" class="icon-button" @click="closePopover" aria-label="Close details">×</button>
+            </div>
+
+            <div v-if="activeForm" class="popover-body">
+              <section class="popover-section">
+                <header>
+                  <h3>Timing</h3>
+                </header>
+                <div class="field-grid">
+                  <label>
+                    <span>Start (local)</span>
+                    <input
+                      type="datetime-local"
+                      v-model="activeForm.startLocal"
+                      @change="syncSessionUtc(activeForm, 'start')"
+                      required
+                    />
+                  </label>
+                  <label>
+                    <span>End (local)</span>
+                    <input
+                      type="datetime-local"
+                      v-model="activeForm.endLocal"
+                      @change="syncSessionUtc(activeForm, 'end')"
+                      required
+                    />
+                  </label>
+                </div>
+                <div class="field-grid field-grid--readonly">
+                  <div>
+                    <span>Start (UTC)</span>
+                    <code>{{ activeForm.startUtc || '—' }}</code>
+                  </div>
+                  <div>
+                    <span>End (UTC)</span>
+                    <code>{{ activeForm.endUtc || '—' }}</code>
+                  </div>
+                </div>
+              </section>
+
+              <section class="popover-section">
+                <header>
+                  <h3>Identities</h3>
+                </header>
+                <div class="identity-editor">
+                  <div v-if="activeForm.identityIds.length > 0" class="identity-editor__chips">
+                    <button
+                      v-for="identity in selectedIdentities"
+                      :key="identity.id"
+                      type="button"
+                      class="identity-chip"
+                      @click="toggleIdentity(activeForm, identity.id)"
+                    >
+                      {{ identity.fullName || 'Unknown' }}
+                      <span aria-hidden="true">×</span>
+                    </button>
+                  </div>
+                  <input
+                    type="search"
+                    v-model="activeForm.identitySearch"
+                    placeholder="Search identities"
+                    class="identity-editor__search"
+                  />
+                  <div class="identity-editor__list">
+                    <label v-for="option in filteredIdentityOptions" :key="option.id">
+                      <input
+                        type="checkbox"
+                        :value="option.id"
+                        :checked="activeForm.identityIds.includes(option.id)"
+                        @change="toggleIdentity(activeForm, option.id)"
+                      />
+                      <span>{{ formatIdentityOption(option) }}</span>
+                    </label>
+                  </div>
+                </div>
+              </section>
+
+              <section class="popover-section">
+                <header>
+                  <h3>Images</h3>
+                </header>
+                <div v-if="activeForm.images.length === 0" class="empty-list">This session has no linked images.</div>
+                <div v-else class="image-editor">
+                  <div
+                    v-for="image in activeForm.images"
+                    :key="image.id"
+                    class="image-editor__row"
+                    :class="{ 'image-editor__row--focused': popover.focusImageId === image.id }"
+                  >
+                    <label class="image-editor__include">
+                      <input type="checkbox" v-model="image.included" />
+                      <span>Include</span>
+                    </label>
+                    <div class="image-editor__meta">
+                      <span class="image-editor__name">{{ image.filename }}</span>
+                      <span class="image-editor__path">{{ image.directoryPath }}</span>
+                    </div>
+                    <div class="image-editor__inputs">
+                      <label>
+                        <span>Captured (local)</span>
+                        <input
+                          type="datetime-local"
+                          v-model="image.timestampLocal"
+                          @change="syncImageUtc(image)"
+                        />
+                      </label>
+                      <div class="image-editor__utc">
+                        <span>UTC</span>
+                        <code>{{ image.timestampUtc || '—' }}</code>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="add-image">
+                  <label>
+                    <span>Add image by ID</span>
+                    <div class="add-image__controls">
+                      <input
+                        type="text"
+                        v-model="activeForm.addImageId"
+                        placeholder="Image document ID"
+                        @keyup.enter="queueNewImageId(activeForm)"
+                      />
+                      <button type="button" @click="queueNewImageId(activeForm)">Add</button>
+                    </div>
+                  </label>
+                  <div v-if="activeForm.pendingImageIds.length" class="add-image__pending">
+                    <span>Queued IDs:</span>
+                    <button
+                      v-for="id in activeForm.pendingImageIds"
+                      :key="id"
+                      type="button"
+                      @click="removePendingImageId(activeForm, id)"
+                    >
+                      {{ id }} ×
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              <footer class="popover-actions">
+                <button
+                  type="button"
+                  class="primary"
+                  :disabled="activeForm.isSaving"
+                  @click="saveSessionEdits(popover.sessionId)"
+                >
+                  <span v-if="activeForm.isSaving">Saving…</span>
+                  <span v-else>Save changes</span>
+                </button>
+                <button
+                  type="button"
+                  class="ghost"
+                  :disabled="activeForm.isSaving"
+                  @click="resetSessionForm(popover.sessionId)"
+                >
+                  Reset
+                </button>
+              </footer>
+
+              <p v-if="activeForm.errorMessage" class="popover-status popover-status--error">
+                {{ activeForm.errorMessage }}
+              </p>
+              <p v-if="activeForm.successMessage" class="popover-status popover-status--success">
+                {{ activeForm.successMessage }}
+              </p>
             </div>
           </div>
-
-          <div class="add-image">
-            <label>
-              <span>Add image by ID</span>
-              <input type="text" v-model.trim="selectedSessionForm.addImageId" placeholder="Image document ID" />
-            </label>
-          </div>
-        </div>
-
-        <div class="editor-actions">
-          <button type="submit" :disabled="isSaving">
-            <span v-if="isSaving">Saving…</span>
-            <span v-else>Save changes</span>
-          </button>
-          <button type="button" class="ghost" :disabled="isSaving" @click="resetSelection">Cancel</button>
-        </div>
-      </form>
+        </transition>
+      </div>
     </section>
   </div>
 </template>
@@ -154,6 +295,13 @@ import {
   hasActiveSession,
   updateSessionAndImages,
 } from '@/utils/app';
+
+const TIMELINE_MIN_WIDTH = 960;
+const PIXELS_PER_HOUR = 220;
+const AXIS_HEIGHT = 72;
+const ROW_HEIGHT = 120;
+const ROW_VERTICAL_PADDING = 32;
+const POPOVER_HIDE_DELAY = 180;
 
 function formatDateTimeLocal(value) {
   if (!value) {
@@ -182,29 +330,92 @@ function parseLocalInput(value) {
   return date;
 }
 
-function toIsoString(value) {
-  const date = value instanceof Date ? value : parseLocalInput(value);
-  if (!date) {
-    return null;
+function formatUtcLabel(value) {
+  if (!value) {
+    return '—';
   }
-
-  return date.toISOString();
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+  return date.toISOString().replace('T', ' ').replace('Z', ' UTC');
 }
 
-function buildIdentityLabel(identity) {
-  const name = identity.fullName || [identity.firstName, identity.lastName].filter(Boolean).join(' ');
-  const segments = [];
-  if (identity.campusLabel) {
-    segments.push(identity.campusLabel);
+function formatUtcShort(value) {
+  if (!value) {
+    return '—';
   }
-  if (identity.gradeLabel) {
-    segments.push(identity.gradeLabel);
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '—';
   }
-  if (identity.houseLabel) {
-    segments.push(identity.houseLabel);
-  }
+  const pad = (num) => String(num).padStart(2, '0');
+  return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())} UTC`;
+}
 
-  return segments.length > 0 ? `${name} — ${segments.join(' • ')}` : name;
+function buildIdentity(identity) {
+  const fullName = identity.fullName || [identity.firstName, identity.lastName].filter(Boolean).join(' ');
+  return {
+    ...identity,
+    fullName,
+    campusLabel: identity.campusLabel || getCampusString(identity.campus),
+    gradeLabel: identity.gradeLabel || getGradeString(identity.grade),
+    houseLabel: identity.houseLabel || getHouseString(identity.house),
+  };
+}
+
+function normalizeSession(payload) {
+  const startIso = payload.session_start_dt || payload.start || null;
+  const endIso = payload.session_end_dt || payload.end || null;
+  const startDate = startIso ? new Date(startIso) : null;
+  const endDate = endIso ? new Date(endIso) : null;
+
+  const identityIds = Array.isArray(payload.identityIds)
+    ? payload.identityIds.filter((id) => typeof id === 'string')
+    : [];
+
+  const identities = Array.isArray(payload.identities)
+    ? payload.identities.map(buildIdentity)
+    : [];
+
+  const images = Array.isArray(payload.images)
+    ? payload.images.map((image) => {
+        const captured = image.exifDateTimeOriginal || image.capturedAt || null;
+        const capturedDate = captured ? new Date(captured) : null;
+        return {
+          id: image.id,
+          filename: image.filename,
+          directoryPath: image.directoryPath,
+          capturedAt: capturedDate,
+          capturedAtIso: capturedDate ? capturedDate.toISOString() : null,
+        };
+      })
+    : [];
+
+  return {
+    id: payload.id,
+    start: startDate ? startDate.toISOString() : null,
+    end: endDate ? endDate.toISOString() : null,
+    startMs: startDate ? startDate.getTime() : null,
+    endMs: endDate ? endDate.getTime() : null,
+    identityIds,
+    identities,
+    images,
+  };
+}
+
+function assignSessionRows(sessions) {
+  const rowEndTimes = [];
+  return sessions.map((session) => {
+    const startMs = session.startMs ?? 0;
+    const endMs = session.endMs && session.endMs > startMs ? session.endMs : startMs + 60_000;
+    let rowIndex = 0;
+    while (rowEndTimes[rowIndex] && rowEndTimes[rowIndex] > startMs) {
+      rowIndex += 1;
+    }
+    rowEndTimes[rowIndex] = endMs;
+    return { ...session, rowIndex };
+  });
 }
 
 export default {
@@ -224,12 +435,17 @@ export default {
       sessions: [],
       allIdentities: [],
       loading: false,
-      isSaving: false,
       errorMessage: '',
       successMessage: '',
-      selectedSessionId: null,
-      selectedSessionForm: null,
-      selectedSessionOriginal: null,
+      popover: {
+        sessionId: null,
+        focusImageId: null,
+        left: 0,
+        top: 0,
+      },
+      popoverTimer: null,
+      sessionForms: {},
+      sessionOriginals: {},
     };
   },
   computed: {
@@ -239,7 +455,7 @@ export default {
     rangeEndDate() {
       return parseLocalInput(this.rangeEnd);
     },
-    rangeDurationMs() {
+    timelineDurationMs() {
       const start = this.rangeStartDate?.getTime();
       const end = this.rangeEndDate?.getTime();
       if (!start || !end || end <= start) {
@@ -247,96 +463,178 @@ export default {
       }
       return end - start;
     },
-    identityOptions() {
-      const map = new Map();
-      this.allIdentities.forEach((identity) => {
-        map.set(identity.id, identity);
-      });
+    timelineWidth() {
+      const hours = this.timelineDurationMs / (1000 * 60 * 60);
+      return Math.max(TIMELINE_MIN_WIDTH, Math.ceil(hours * PIXELS_PER_HOUR));
+    },
+    axisHeight() {
+      return AXIS_HEIGHT;
+    },
+    rowHeight() {
+      return ROW_HEIGHT;
+    },
+    rowCount() {
+      return this.timelineSessions.reduce((max, session) => Math.max(max, (session.rowIndex ?? 0) + 1), 0);
+    },
+    bodyHeight() {
+      const rows = Math.max(1, this.rowCount);
+      return rows * this.rowHeight + ROW_VERTICAL_PADDING * 2;
+    },
+    timelineHeight() {
+      return this.axisHeight + this.bodyHeight;
+    },
+    timelineSessions() {
+      return this.sessions;
+    },
+    imageMarkers() {
+      return this.timelineSessions.flatMap((session) =>
+        session.images.map((image) => ({
+          key: `${session.id}-${image.id}`,
+          session,
+          image,
+        })),
+      );
+    },
+    axisTicks() {
+      const ticks = [];
+      if (!this.rangeStartDate || !this.rangeEndDate) {
+        return ticks;
+      }
 
-      if (this.selectedSessionOriginal?.identities) {
-        this.selectedSessionOriginal.identities.forEach((identity) => {
-          if (!map.has(identity.id)) {
-            map.set(identity.id, identity);
-          }
+      const start = new Date(this.rangeStartDate);
+      start.setMinutes(0, 0, 0);
+      if (start.getTime() > this.rangeStartDate.getTime()) {
+        start.setHours(start.getHours() - 1);
+      }
+      const endMs = this.rangeEndDate.getTime();
+
+      for (let cursor = start.getTime(); cursor <= endMs; cursor += 60 * 60 * 1000) {
+        const cursorDate = new Date(cursor);
+        ticks.push({
+          iso: cursorDate.toISOString(),
+          local: cursorDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          utc: formatUtcShort(cursorDate),
+          position: this.getPositionForTime(cursor),
         });
       }
 
+      return ticks;
+    },
+    popoverStyle() {
+      if (!this.popover.sessionId) {
+        return {};
+      }
+      return {
+        left: `${this.popover.left}px`,
+        top: `${this.popover.top}px`,
+      };
+    },
+    popoverSession() {
+      return this.timelineSessions.find((session) => session.id === this.popover.sessionId) || null;
+    },
+    popoverSubtitle() {
+      const session = this.popoverSession;
+      if (!session) {
+        return '';
+      }
+      const start = this.formatDisplay(session.start);
+      const end = this.formatDisplay(session.end);
+      return `${start} → ${end}`;
+    },
+    activeForm() {
+      if (!this.popover.sessionId) {
+        return null;
+      }
+      return this.sessionForms[this.popover.sessionId] || null;
+    },
+    identityOptions() {
+      const map = new Map();
+      this.allIdentities.forEach((identity) => {
+        map.set(identity.id, buildIdentity(identity));
+      });
+
+      this.timelineSessions.forEach((session) => {
+        session.identities.forEach((identity) => {
+          if (!map.has(identity.id)) {
+            map.set(identity.id, buildIdentity(identity));
+          }
+        });
+      });
+
       return Array.from(map.values());
+    },
+    selectedIdentities() {
+      if (!this.activeForm) {
+        return [];
+      }
+      const selectedSet = new Set(this.activeForm.identityIds);
+      return this.identityOptions.filter((identity) => selectedSet.has(identity.id));
+    },
+    filteredIdentityOptions() {
+      if (!this.activeForm) {
+        return [];
+      }
+      const query = (this.activeForm.identitySearch || '').toLowerCase();
+      const selectedSet = new Set(this.activeForm.identityIds);
+      return this.identityOptions.filter((identity) => {
+        if (selectedSet.has(identity.id)) {
+          return true;
+        }
+        if (!query) {
+          return true;
+        }
+        return (
+          identity.fullName?.toLowerCase().includes(query)
+          || identity.campusLabel?.toLowerCase().includes(query)
+          || identity.gradeLabel?.toLowerCase().includes(query)
+          || identity.houseLabel?.toLowerCase().includes(query)
+        );
+      });
     },
   },
   async created() {
-    if (!this.showLogin) {
-      await this.initialize();
+    if (this.showLogin) {
+      return;
     }
+    await this.initialize();
   },
   methods: {
     async initialize() {
       await this.loadIdentities();
       await this.loadSessions();
     },
-    formatDisplay(date) {
-      if (!date) {
-        return '—';
-      }
-      const actual = date instanceof Date ? date : new Date(date);
-      if (Number.isNaN(actual.getTime())) {
-        return '—';
-      }
-      return actual.toLocaleString();
+    async handleAuthenticated() {
+      this.showLogin = false;
+      await this.initialize();
     },
-    formatSessionWindow(session) {
-      const startLabel = this.formatDisplay(session.start);
-      const endLabel = this.formatDisplay(session.end);
-      return `${startLabel} → ${endLabel}`;
+    formatDisplay(value) {
+      if (!value) {
+        return '—';
+      }
+      const date = value instanceof Date ? value : new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return '—';
+      }
+      return date.toLocaleString();
+    },
+    formatUtc(value) {
+      return formatUtcLabel(value);
     },
     formatIdentityOption(identity) {
-      return buildIdentityLabel(identity);
+      const segments = [identity.fullName];
+      if (identity.campusLabel) {
+        segments.push(identity.campusLabel);
+      }
+      if (identity.gradeLabel) {
+        segments.push(identity.gradeLabel);
+      }
+      if (identity.houseLabel) {
+        segments.push(identity.houseLabel);
+      }
+      return segments.filter(Boolean).join(' • ');
     },
-    normalizeSessionPayload(payload) {
-      const startIso = payload.session_start_dt || payload.start || null;
-      const endIso = payload.session_end_dt || payload.end || null;
-      const startDate = startIso ? new Date(startIso) : null;
-      const endDate = endIso ? new Date(endIso) : null;
-
-      const identityIds = Array.isArray(payload.identityIds)
-        ? payload.identityIds.filter((id) => typeof id === 'string')
-        : [];
-
-      const identities = Array.isArray(payload.identities)
-        ? payload.identities.map((identity) => ({
-          ...identity,
-          fullName:
-            identity.fullName || [identity.firstName, identity.lastName].filter(Boolean).join(' '),
-          campusLabel: identity.campusLabel || getCampusString(identity.campus),
-          gradeLabel: identity.gradeLabel || getGradeString(identity.grade),
-          houseLabel: identity.houseLabel || getHouseString(identity.house),
-        }))
-        : [];
-
-      const images = Array.isArray(payload.images)
-        ? payload.images.map((image) => {
-          const captured = image.exifDateTimeOriginal || image.capturedAt || null;
-          const capturedDate = captured ? new Date(captured) : null;
-          return {
-            id: image.id,
-            filename: image.filename,
-            directoryPath: image.directoryPath,
-            capturedAt: capturedDate,
-            capturedAtIso: capturedDate ? capturedDate.toISOString() : null,
-          };
-        })
-        : [];
-
-      return {
-        id: payload.id,
-        start: startDate ? startDate.toISOString() : null,
-        end: endDate ? endDate.toISOString() : null,
-        startMs: startDate ? startDate.getTime() : null,
-        endMs: endDate ? endDate.getTime() : null,
-        identityIds,
-        identities,
-        images,
-      };
+    handleRangeInput() {
+      this.successMessage = '';
     },
     async loadIdentities() {
       try {
@@ -349,7 +647,7 @@ export default {
         }
       }
     },
-    async loadSessions() {
+    async loadSessions(options = {}) {
       if (!hasActiveSession()) {
         this.handleSessionExpired();
         return;
@@ -364,25 +662,40 @@ export default {
 
       this.loading = true;
       this.errorMessage = '';
-      this.successMessage = '';
+      if (!options.preserveSuccessMessage) {
+        this.successMessage = '';
+      }
 
       try {
         const results = await fetchSessionsWithinRange(startDate.toISOString(), endDate.toISOString());
-        const normalized = results.map((session) => this.normalizeSessionPayload(session));
-        this.sessions = normalized;
+        const normalized = results.map((session) => normalizeSession(session));
+        const ordered = normalized.sort((a, b) => (a.startMs ?? 0) - (b.startMs ?? 0));
+        const withRows = assignSessionRows(ordered);
+        this.sessions = withRows;
 
-        if (normalized.length === 0) {
-          this.selectedSessionId = null;
-          this.selectedSessionForm = null;
-          this.selectedSessionOriginal = null;
-        } else if (!this.selectedSessionId || !normalized.some((session) => session.id === this.selectedSessionId)) {
-          this.selectSession(normalized[0]);
-        } else {
-          const session = normalized.find((item) => item.id === this.selectedSessionId);
-          if (session) {
-            this.selectSession(session);
+        const originals = {};
+        withRows.forEach((session) => {
+          originals[session.id] = JSON.parse(JSON.stringify(session));
+        });
+        this.sessionOriginals = originals;
+        this.sessionForms = {};
+
+        if (options.preserveSessionId) {
+          const sessionToRestore = withRows.find((session) => session.id === options.preserveSessionId);
+          if (sessionToRestore) {
+            const restoredForm = this.ensureSessionForm(sessionToRestore);
+            restoredForm.successMessage = options.restoredSuccessMessage || '';
+            this.popover = {
+              sessionId: sessionToRestore.id,
+              focusImageId: options.focusImageId ?? null,
+              left: options.position?.left ?? Math.min(this.timelineWidth - 320, 24),
+              top: options.position?.top ?? this.axisHeight + ROW_VERTICAL_PADDING,
+            };
+            return;
           }
         }
+
+        this.closePopover();
       } catch (error) {
         if (error instanceof UnauthorizedError) {
           this.handleSessionExpired();
@@ -394,102 +707,232 @@ export default {
         this.loading = false;
       }
     },
-    selectSession(session) {
-      if (!session) {
-        return;
+    ensureSessionForm(session) {
+      if (this.sessionForms[session.id]) {
+        return this.sessionForms[session.id];
       }
 
-      this.selectedSessionId = session.id;
-      this.selectedSessionOriginal = JSON.parse(JSON.stringify(session));
-
-      const images = session.images.map((image) => ({
-        id: image.id,
-        filename: image.filename,
-        directoryPath: image.directoryPath,
-        timestampLocal: formatDateTimeLocal(image.capturedAtIso),
-        originalTimestamp: image.capturedAtIso,
-        included: true,
-      }));
-
-      this.selectedSessionForm = {
+      const form = {
         startLocal: formatDateTimeLocal(session.start),
         endLocal: formatDateTimeLocal(session.end),
+        startUtc: formatUtcLabel(session.start),
+        endUtc: formatUtcLabel(session.end),
         identityIds: [...session.identityIds],
-        images,
+        identitySearch: '',
+        images: session.images.map((image) => ({
+          id: image.id,
+          filename: image.filename,
+          directoryPath: image.directoryPath,
+          timestampLocal: formatDateTimeLocal(image.capturedAtIso),
+          timestampUtc: formatUtcLabel(image.capturedAtIso),
+          originalTimestamp: image.capturedAtIso,
+          included: true,
+        })),
         addImageId: '',
+        pendingImageIds: [],
+        isSaving: false,
+        errorMessage: '',
+        successMessage: '',
       };
-    },
-    resetSelection() {
-      if (!this.selectedSessionId) {
-        return;
-      }
 
-      const session = this.sessions.find((item) => item.id === this.selectedSessionId);
-      if (session) {
-        this.selectSession(session);
+      this.sessionForms = {
+        ...this.sessionForms,
+        [session.id]: form,
+      };
+
+      return form;
+    },
+    getPositionForTime(timestamp) {
+      if (!this.rangeStartDate || !this.rangeEndDate) {
+        return 0;
       }
+      const value = timestamp instanceof Date ? timestamp.getTime() : Number(timestamp);
+      const start = this.rangeStartDate.getTime();
+      const end = this.rangeEndDate.getTime();
+      const duration = end - start;
+      if (duration <= 0) {
+        return 0;
+      }
+      const clamped = Math.min(Math.max(value - start, 0), duration);
+      return (clamped / duration) * this.timelineWidth;
     },
     getSessionBlockStyle(session) {
-      const rangeStartMs = this.rangeStartDate ? this.rangeStartDate.getTime() : 0;
-      const duration = this.rangeDurationMs || 1;
-      const sessionStart = session.startMs ?? rangeStartMs;
-      const sessionEnd = session.endMs ?? sessionStart;
-      const clamp = (value) => Math.min(100, Math.max(0, value));
-      const left = clamp(((sessionStart - rangeStartMs) / duration) * 100);
-      const width = clamp(((sessionEnd - sessionStart) / duration) * 100);
+      const start = session.startMs ?? this.rangeStartDate?.getTime() ?? 0;
+      const end = session.endMs ?? start;
+      const left = this.getPositionForTime(start);
+      const right = this.getPositionForTime(end);
+      const width = Math.max(right - left, 6);
       return {
-        left: `${left}%`,
-        width: `${Math.max(width, 1)}%`,
+        left: `${left}px`,
+        top: `${ROW_VERTICAL_PADDING + session.rowIndex * this.rowHeight}px`,
+        width: `${width}px`,
       };
     },
-    getImageMarkerStyle(image) {
-      const rangeStartMs = this.rangeStartDate ? this.rangeStartDate.getTime() : 0;
-      const duration = this.rangeDurationMs || 1;
-      const capturedMs = image.capturedAt ? image.capturedAt.getTime() : rangeStartMs;
-      const position = Math.min(100, Math.max(0, ((capturedMs - rangeStartMs) / duration) * 100));
+    getImageMarkerStyle(marker) {
+      const time = marker.image.capturedAt ? marker.image.capturedAt.getTime() : marker.session.startMs ?? this.rangeStartDate?.getTime() ?? 0;
+      const position = this.getPositionForTime(time);
+      const top = ROW_VERTICAL_PADDING + marker.session.rowIndex * this.rowHeight - 18;
       return {
-        left: `${position}%`,
+        left: `${position}px`,
+        top: `${top}px`,
       };
     },
-    async saveSessionEdits() {
-      if (!this.selectedSessionId || !this.selectedSessionForm) {
+    sessionLabel(session) {
+      const start = session.start ? new Date(session.start) : null;
+      const end = session.end ? new Date(session.end) : null;
+      const startLabel = start ? start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+      const endLabel = end ? end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—';
+      return `${startLabel} → ${endLabel}`;
+    },
+    openSessionPopover(session, event) {
+      this.openPopover(session, null, event);
+    },
+    openImagePopover(session, image, event) {
+      this.openPopover(session, image, event);
+    },
+    openPopover(session, image, event) {
+      const canvas = this.$refs.timelineCanvas;
+      if (!canvas) {
         return;
       }
 
-      const startDate = parseLocalInput(this.selectedSessionForm.startLocal);
-      const endDate = parseLocalInput(this.selectedSessionForm.endLocal);
+      const containerRect = canvas.getBoundingClientRect();
+      const targetRect = event.currentTarget.getBoundingClientRect();
+      const halfWidth = targetRect.width / 2;
+      const left = Math.min(
+        Math.max(targetRect.left - containerRect.left + halfWidth, 16),
+        containerRect.width - 16,
+      );
+      const top = Math.max(targetRect.bottom - containerRect.top + 12, this.axisHeight + ROW_VERTICAL_PADDING);
+
+      this.popover = {
+        sessionId: session.id,
+        focusImageId: image ? image.id : null,
+        left,
+        top,
+      };
+
+      const form = this.ensureSessionForm(session);
+      if (image) {
+        const targetImage = form.images.find((item) => item.id === image.id);
+        if (targetImage) {
+          targetImage.included = true;
+        }
+      }
+
+      this.clearPopoverTimer();
+    },
+    schedulePopoverClose() {
+      this.clearPopoverTimer();
+      this.popoverTimer = setTimeout(() => {
+        this.closePopover();
+      }, POPOVER_HIDE_DELAY);
+    },
+    clearPopoverTimer() {
+      if (this.popoverTimer) {
+        clearTimeout(this.popoverTimer);
+        this.popoverTimer = null;
+      }
+    },
+    closePopover() {
+      this.clearPopoverTimer();
+      this.popover = {
+        sessionId: null,
+        focusImageId: null,
+        left: 0,
+        top: 0,
+      };
+    },
+    syncSessionUtc(form, which) {
+      if (!form) {
+        return;
+      }
+      if (which === 'start') {
+        const date = parseLocalInput(form.startLocal);
+        form.startUtc = formatUtcLabel(date);
+      } else if (which === 'end') {
+        const date = parseLocalInput(form.endLocal);
+        form.endUtc = formatUtcLabel(date);
+      }
+    },
+    syncImageUtc(image) {
+      const date = parseLocalInput(image.timestampLocal);
+      image.timestampUtc = formatUtcLabel(date);
+    },
+    toggleIdentity(form, identityId) {
+      if (!form) {
+        return;
+      }
+      const exists = form.identityIds.includes(identityId);
+      if (exists) {
+        form.identityIds = form.identityIds.filter((id) => id !== identityId);
+      } else {
+        form.identityIds = [...form.identityIds, identityId];
+      }
+    },
+    queueNewImageId(form) {
+      if (!form) {
+        return;
+      }
+      const candidate = (form.addImageId || '').trim();
+      if (!candidate) {
+        return;
+      }
+      if (
+        form.pendingImageIds.includes(candidate)
+        || form.images.some((image) => image.id === candidate)
+      ) {
+        form.addImageId = '';
+        return;
+      }
+      form.pendingImageIds = [...form.pendingImageIds, candidate];
+      form.addImageId = '';
+    },
+    removePendingImageId(form, imageId) {
+      if (!form) {
+        return;
+      }
+      form.pendingImageIds = form.pendingImageIds.filter((id) => id !== imageId);
+    },
+    async saveSessionEdits(sessionId) {
+      const form = this.sessionForms[sessionId];
+      const original = this.sessionOriginals[sessionId];
+      if (!form || !original) {
+        return;
+      }
+
+      const startDate = parseLocalInput(form.startLocal);
+      const endDate = parseLocalInput(form.endLocal);
       if (!startDate || !endDate || endDate <= startDate) {
-        this.errorMessage = 'Please ensure the session start is before the session end.';
+        form.errorMessage = 'Please ensure the session start is before the session end.';
+        form.successMessage = '';
         return;
       }
 
-      const identityIds = Array.isArray(this.selectedSessionForm.identityIds)
-        ? [...new Set(this.selectedSessionForm.identityIds.filter((value) => typeof value === 'string' && value.trim() !== ''))]
-        : [];
+      const identityIds = Array.from(new Set(form.identityIds.filter((value) => typeof value === 'string' && value.trim() !== '')));
 
-      const includedImages = this.selectedSessionForm.images
+      const includedImages = form.images
         .filter((image) => image.included)
         .map((image) => image.id)
         .filter((value) => typeof value === 'string' && value.trim() !== '');
 
-      const newImageId = this.selectedSessionForm.addImageId;
-      if (newImageId) {
-        includedImages.push(newImageId);
-      }
+      const pendingImageIds = form.pendingImageIds.filter((value) => value && value.trim() !== '');
+      const imageIds = Array.from(new Set([...includedImages, ...pendingImageIds]));
 
-      const uniqueImageIds = [...new Set(includedImages)];
-      const originalImageMap = new Map(
-        (this.selectedSessionOriginal?.images || []).map((image) => [image.id, image.capturedAtIso]),
-      );
+      const originalImageMap = new Map((original.images || []).map((image) => [image.id, image.capturedAtIso || null]));
 
       const imageUpdates = [];
-      this.selectedSessionForm.images.forEach((image) => {
+      form.images.forEach((image) => {
         if (!image.included) {
           return;
         }
-        const iso = toIsoString(image.timestampLocal);
+        const parsed = parseLocalInput(image.timestampLocal);
+        if (!parsed) {
+          return;
+        }
+        const iso = parsed.toISOString();
         const originalIso = originalImageMap.get(image.id) || null;
-        if (iso && iso !== originalIso) {
+        if (iso !== originalIso) {
           imageUpdates.push({
             imageId: image.id,
             exif_date_time_original: iso,
@@ -500,133 +943,190 @@ export default {
       const sessionPayload = {
         session_start_dt: startDate.toISOString(),
         session_end_dt: endDate.toISOString(),
-        identityIds: identityIds,
-        imageIds: uniqueImageIds,
+        identityIds,
+        imageIds,
       };
 
-      this.isSaving = true;
-      this.errorMessage = '';
-      this.successMessage = '';
+      form.isSaving = true;
+      form.errorMessage = '';
+      form.successMessage = '';
 
       try {
-        await updateSessionAndImages(this.selectedSessionId, sessionPayload, imageUpdates);
-        await this.loadSessions();
+        await updateSessionAndImages(sessionId, sessionPayload, imageUpdates);
+        const previousPosition = { left: this.popover.left, top: this.popover.top };
+        await this.loadSessions({
+          preserveSessionId: sessionId,
+          position: previousPosition,
+          focusImageId: this.popover.focusImageId,
+          preserveSuccessMessage: true,
+          restoredSuccessMessage: 'Session updated successfully.',
+        });
         this.successMessage = 'Session updated successfully.';
+        const refreshedForm = this.sessionForms[sessionId];
+        if (refreshedForm) {
+          refreshedForm.successMessage = 'Session updated successfully.';
+          refreshedForm.pendingImageIds = [];
+        }
       } catch (error) {
         if (error instanceof UnauthorizedError) {
           this.handleSessionExpired();
         } else {
           console.error('Failed to update session', error);
-          this.errorMessage = error.message || 'Unable to update the session.';
+          form.errorMessage = error.message || 'Unable to update the session.';
         }
       } finally {
-        this.isSaving = false;
+        form.isSaving = false;
       }
     },
-    handleAuthenticated() {
-      this.showLogin = false;
-      this.initialize();
+    resetSessionForm(sessionId) {
+      const session = this.sessionOriginals[sessionId];
+      if (!session) {
+        return;
+      }
+      const refreshed = this.ensureSessionForm(session);
+      refreshed.startLocal = formatDateTimeLocal(session.start);
+      refreshed.endLocal = formatDateTimeLocal(session.end);
+      refreshed.startUtc = formatUtcLabel(session.start);
+      refreshed.endUtc = formatUtcLabel(session.end);
+      refreshed.identityIds = [...session.identityIds];
+      refreshed.identitySearch = '';
+      refreshed.images = session.images.map((image) => ({
+        id: image.id,
+        filename: image.filename,
+        directoryPath: image.directoryPath,
+        timestampLocal: formatDateTimeLocal(image.capturedAtIso),
+        timestampUtc: formatUtcLabel(image.capturedAtIso),
+        originalTimestamp: image.capturedAtIso,
+        included: true,
+      }));
+      refreshed.addImageId = '';
+      refreshed.pendingImageIds = [];
+      refreshed.errorMessage = '';
+      refreshed.successMessage = '';
     },
     handleSessionExpired() {
       clearSessionCookies();
       this.showLogin = true;
+      this.loading = false;
       this.sessions = [];
-      this.selectedSessionId = null;
-      this.selectedSessionForm = null;
-      this.selectedSessionOriginal = null;
+      this.sessionForms = {};
+      this.sessionOriginals = {};
+      this.errorMessage = '';
+      this.successMessage = '';
+      this.closePopover();
     },
   },
 };
 </script>
 
 <style scoped>
-.timeline-view {
-  display: grid;
-  gap: 1.25rem;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-}
-
-.timeline-card {
-  background: #ffffff;
-  border-radius: 1rem;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-  padding: 1.5rem;
+.timeline-page {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  background: #f5f6fa;
+  min-height: 100%;
 }
 
-.timeline-card__header {
+.timeline-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  background: #ffffff;
+  border-radius: 1.25rem;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+  padding: 1.75rem;
+}
+
+.timeline-toolbar {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
-  gap: 1rem;
-  align-items: flex-start;
+  gap: 1.25rem;
+  align-items: center;
 }
 
-.timeline-card__header h2 {
+.toolbar-titles h1 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.45rem;
   font-weight: 600;
-  color: #111827;
+  color: #0f172a;
 }
 
-.timeline-card__header p {
+.toolbar-titles p {
   margin: 0.25rem 0 0;
-  color: #4b5563;
-  font-size: 0.95rem;
+  color: #475569;
+  max-width: 36rem;
 }
 
-.range-form {
+.toolbar-range {
   display: flex;
+  gap: 1rem;
   align-items: flex-end;
-  gap: 0.75rem;
 }
 
-.range-form label {
+.toolbar-range label {
   display: flex;
   flex-direction: column;
+  gap: 0.4rem;
   font-size: 0.85rem;
-  color: #4b5563;
+  color: #1e293b;
 }
 
-.range-form input[type="datetime-local"] {
-  margin-top: 0.25rem;
-  padding: 0.45rem 0.6rem;
-  border-radius: 0.5rem;
+.toolbar-range input {
   border: 1px solid #cbd5f5;
+  border-radius: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  min-width: 14rem;
   font-size: 0.95rem;
 }
 
-.range-form button {
-  background: #2563eb;
-  color: #ffffff;
+.toolbar-range button {
   border: none;
   border-radius: 0.75rem;
-  padding: 0.55rem 1.25rem;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #f8fafc;
   font-weight: 600;
+  padding: 0.65rem 1.25rem;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.range-form button:disabled {
+.toolbar-range button:disabled {
   opacity: 0.6;
   cursor: wait;
+  box-shadow: none;
+  transform: none;
 }
 
-.range-form button:not(:disabled):hover {
+.toolbar-range button:not(:disabled):hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.25);
+}
+
+.timeline-range-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.95rem;
+  color: #334155;
+}
+
+.range-summary__row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
 }
 
 .alert {
-  padding: 0.65rem 0.85rem;
-  border-radius: 0.6rem;
-  font-size: 0.9rem;
+  border-radius: 0.85rem;
+  padding: 0.85rem 1.1rem;
+  font-weight: 500;
 }
 
 .alert--error {
-  background: rgba(220, 38, 38, 0.1);
+  background: rgba(239, 68, 68, 0.12);
   color: #b91c1c;
 }
 
@@ -635,288 +1135,489 @@ export default {
   color: #047857;
 }
 
-.empty-state {
-  background: #f9fafb;
-  border-radius: 0.75rem;
-  padding: 1.25rem;
+.timeline-empty {
+  padding: 2.5rem;
+  border: 2px dashed #cbd5f5;
+  border-radius: 1rem;
   text-align: center;
-  color: #4b5563;
-  font-size: 0.95rem;
+  color: #475569;
+  background: #f8fafc;
 }
 
-.timeline-chart {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+.timeline-canvas {
+  position: relative;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 1.25rem;
+  overflow: auto;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 65%);
+}
+
+.timeline-scroll {
+  position: relative;
+  min-height: 320px;
 }
 
 .timeline-axis {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(248, 250, 252, 0.92);
+  backdrop-filter: blur(6px);
   display: flex;
-  justify-content: space-between;
-  color: #6b7280;
-  font-size: 0.85rem;
-  padding: 0 0.5rem;
+  align-items: flex-end;
 }
 
-.timeline-rows {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.timeline-row {
-  background: #f8fafc;
-  border: 1px solid transparent;
-  border-radius: 1rem;
-  padding: 1rem;
-  text-align: left;
+.timeline-axis__tick {
+  position: absolute;
+  bottom: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  cursor: pointer;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.timeline-row--active {
-  border-color: #2563eb;
-  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.15);
-  background: #eef2ff;
-}
-
-.timeline-row__header {
-  display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 1rem;
+  transform: translateX(-50%);
+  font-size: 0.75rem;
+  gap: 0.1rem;
+  color: #475569;
 }
 
-.timeline-row__header h3 {
-  margin: 0;
-  font-size: 1rem;
+.axis-label {
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.5rem;
+  background: rgba(226, 232, 240, 0.7);
+}
+
+.axis-label--utc {
+  background: rgba(190, 242, 100, 0.25);
+}
+
+.timeline-body {
+  position: absolute;
+  left: 0;
+  width: 100%;
+}
+
+.timeline-session-block {
+  position: absolute;
+  height: 48px;
+  border-radius: 1.25rem;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.9), rgba(99, 102, 241, 0.9));
+  box-shadow: 0 12px 24px rgba(59, 130, 246, 0.25);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  padding: 0 1.1rem;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.timeline-session-block:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 40px rgba(59, 130, 246, 0.35);
+}
+
+.timeline-session-block--active {
+  border: 2px solid #fbbf24;
+}
+
+.session-block__label {
   font-weight: 600;
-  color: #1f2937;
+  font-size: 0.95rem;
 }
 
-.timeline-row__header p {
+.timeline-image-marker {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: none;
+  background: transparent;
+  transform: translate(-50%, 0);
+  cursor: pointer;
+}
+
+.marker-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #f97316;
+  display: block;
+  transition: transform 0.2s ease;
+  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.15);
+}
+
+.timeline-image-marker:hover .marker-dot,
+.timeline-image-marker--active .marker-dot {
+  transform: scale(1.3);
+  box-shadow: 0 0 0 6px rgba(249, 115, 22, 0.25);
+}
+
+.marker-tooltip {
+  position: absolute;
+  top: -110px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.75rem;
+  background: rgba(15, 23, 42, 0.92);
+  color: #f8fafc;
+  font-size: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform-origin: bottom;
+}
+
+.timeline-image-marker:hover .marker-tooltip,
+.timeline-image-marker--active .marker-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-4px);
+}
+
+.timeline-popover {
+  position: absolute;
+  min-width: 420px;
+  max-width: 480px;
+  background: #ffffff;
+  border-radius: 1.25rem;
+  box-shadow: 0 22px 45px rgba(15, 23, 42, 0.22);
+  padding: 1.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  z-index: 5;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.18s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.popover-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.popover-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #0f172a;
+}
+
+.popover-header p {
   margin: 0.25rem 0 0;
-  color: #4b5563;
+  color: #475569;
   font-size: 0.9rem;
 }
 
-.timeline-row__meta {
-  font-size: 0.85rem;
-  color: #6b7280;
-}
-
-.timeline-track {
-  position: relative;
-  height: 3rem;
-  background: linear-gradient(90deg, rgba(148, 163, 184, 0.2) 0, rgba(148, 163, 184, 0.3) 100%);
+.icon-button {
+  border: none;
+  background: rgba(148, 163, 184, 0.18);
+  color: #0f172a;
+  width: 32px;
+  height: 32px;
   border-radius: 999px;
-  overflow: hidden;
+  font-size: 1.1rem;
+  cursor: pointer;
 }
 
-.session-block {
-  position: absolute;
-  top: 0.4rem;
-  bottom: 0.4rem;
-  background: linear-gradient(90deg, #2563eb, #7c3aed);
-  border-radius: 999px;
-  opacity: 0.9;
-}
-
-.image-marker {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 0.25rem;
-  margin-left: -0.125rem;
-  background: #f97316;
-  border-radius: 999px;
-}
-
-.image-marker__tooltip {
-  position: absolute;
-  top: -2.75rem;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(17, 24, 39, 0.9);
-  color: #f9fafb;
-  padding: 0.35rem 0.5rem;
-  border-radius: 0.5rem;
-  font-size: 0.75rem;
-  white-space: nowrap;
-  display: none;
-}
-
-.image-marker:hover .image-marker__tooltip {
-  display: block;
-}
-
-.timeline-identities {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.identity-chip {
-  background: rgba(37, 99, 235, 0.12);
-  color: #1d4ed8;
-  padding: 0.25rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.8rem;
-}
-
-.editor-form {
+.popover-body {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.5rem;
 }
 
-.form-grid {
+.popover-section header h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  color: #1e293b;
+}
+
+.field-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
 }
 
-.full-width {
+.field-grid label {
   display: flex;
   flex-direction: column;
+  gap: 0.45rem;
+  font-size: 0.85rem;
+  color: #1f2937;
+}
+
+.field-grid input {
+  border-radius: 0.75rem;
+  border: 1px solid #cbd5f5;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.95rem;
+}
+
+.field-grid--readonly {
+  color: #475569;
+}
+
+.field-grid--readonly code {
+  font-family: 'Fira Code', Menlo, monospace;
+  background: rgba(226, 232, 240, 0.45);
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.55rem;
+  display: inline-block;
+}
+.identity-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.identity-editor__chips {
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
-.full-width select {
-  border-radius: 0.65rem;
+.identity-chip {
+  border: none;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.15);
+  color: #1d4ed8;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.identity-editor__search {
+  border-radius: 0.75rem;
   border: 1px solid #cbd5f5;
-  padding: 0.6rem;
-  min-height: 8rem;
+  padding: 0.55rem 0.75rem;
   font-size: 0.95rem;
 }
 
-.images-editor {
+.identity-editor__list {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-}
-
-.images-editor__header h3 {
-  margin: 0;
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: #1f2937;
-}
-
-.images-editor__header p {
-  margin: 0.25rem 0 0;
-  font-size: 0.9rem;
-  color: #4b5563;
-}
-
-.image-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.image-row {
-  display: grid;
-  grid-template-columns: auto 1fr 14rem;
-  gap: 0.75rem;
-  align-items: center;
-  background: #f9fafb;
-  border-radius: 0.75rem;
-  padding: 0.75rem;
-}
-
-.image-row__include {
-  display: flex;
-  align-items: center;
   gap: 0.45rem;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.identity-editor__list label {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
   font-size: 0.9rem;
   color: #1f2937;
 }
 
-.image-row__details {
+.identity-editor__list input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+}
+
+.image-editor {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.75rem;
 }
 
-.image-row__name {
-  font-weight: 600;
+.image-editor__row {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.85rem;
+  background: rgba(226, 232, 240, 0.45);
+  border: 1px solid transparent;
+}
+
+.image-editor__row--focused {
+  border-color: rgba(249, 115, 22, 0.45);
+  background: rgba(254, 215, 170, 0.3);
+}
+
+.image-editor__include {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
   color: #1f2937;
 }
 
-.image-row__path {
-  font-size: 0.8rem;
-  color: #6b7280;
+.image-editor__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
 }
 
-.image-row input[type="datetime-local"] {
-  border-radius: 0.65rem;
+.image-editor__name {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.image-editor__path {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.image-editor__inputs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  align-items: start;
+}
+
+.image-editor__inputs input {
+  border-radius: 0.75rem;
   border: 1px solid #cbd5f5;
-  padding: 0.5rem;
+  padding: 0.45rem 0.65rem;
   font-size: 0.9rem;
 }
 
-.add-image label {
+.image-editor__utc {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  font-size: 0.9rem;
-  color: #1f2937;
+  font-size: 0.8rem;
+  color: #475569;
 }
 
-.add-image input[type="text"] {
-  border-radius: 0.65rem;
+.image-editor__utc code {
+  font-family: 'Fira Code', Menlo, monospace;
+  background: rgba(226, 232, 240, 0.45);
+  padding: 0.3rem 0.45rem;
+  border-radius: 0.55rem;
+}
+
+.add-image {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.add-image__controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.add-image__controls input {
+  flex: 1 1 auto;
+  border-radius: 0.75rem;
   border: 1px solid #cbd5f5;
-  padding: 0.5rem 0.6rem;
-  font-size: 0.95rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
 }
 
-.editor-actions {
+.add-image__controls button {
+  border-radius: 0.75rem;
+  border: none;
+  background: #2563eb;
+  color: #f8fafc;
+  padding: 0.55rem 1.05rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.add-image__pending {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  color: #475569;
+}
+
+.add-image__pending button {
+  border: none;
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 999px;
+  padding: 0.25rem 0.65rem;
+  cursor: pointer;
+}
+
+.popover-actions {
   display: flex;
   gap: 0.75rem;
   justify-content: flex-end;
 }
 
-.editor-actions button {
-  border-radius: 0.75rem;
+.popover-actions .primary {
   border: none;
-  padding: 0.65rem 1.5rem;
+  border-radius: 0.85rem;
+  padding: 0.6rem 1.25rem;
   font-weight: 600;
+  color: #f8fafc;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
   cursor: pointer;
 }
 
-.editor-actions button:first-child {
-  background: #2563eb;
-  color: #ffffff;
-}
-
-.editor-actions button.ghost {
+.popover-actions .ghost {
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  border-radius: 0.85rem;
+  padding: 0.6rem 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
   background: transparent;
-  color: #2563eb;
+  cursor: pointer;
 }
 
-@media (max-width: 1200px) {
-  .timeline-view {
-    grid-template-columns: 1fr;
+.popover-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.popover-status {
+  margin: 0;
+  font-size: 0.85rem;
+  text-align: right;
+}
+
+.popover-status--error {
+  color: #b91c1c;
+}
+
+.popover-status--success {
+  color: #047857;
+}
+
+.empty-list {
+  padding: 1rem;
+  border-radius: 0.85rem;
+  background: rgba(226, 232, 240, 0.5);
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 960px) {
+  .timeline-shell {
+    padding: 1.25rem;
   }
 
-  .form-grid {
-    grid-template-columns: 1fr;
+  .toolbar-range {
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  .image-row {
-    grid-template-columns: 1fr;
-  }
-
-  .image-row input[type="datetime-local"] {
+  .toolbar-range label,
+  .toolbar-range button {
     width: 100%;
   }
 
-  .timeline-track {
-    height: 2.5rem;
+  .timeline-popover {
+    position: fixed;
+    left: 1.5rem !important;
+    right: 1.5rem !important;
+    top: auto !important;
+    bottom: 1.5rem;
+    max-width: none;
   }
 }
 </style>

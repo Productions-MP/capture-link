@@ -1,17 +1,22 @@
 <template>
   <div id="app">
-    <header class="app-header">
-      <h1 class="app-title">Capture Link</h1>
-      <nav class="app-nav">
-        <button type="button" class="nav-link" :class="{ active: activePage === 'sessions' }"
-          @click="navigate('sessions')">Session Manager</button>
-        <button type="button" class="nav-link" :class="{ active: activePage === 'timeline' }"
-          @click="navigate('timeline')">Timeline</button>
-      </nav>
-    </header>
-    <main class="app-main">
-      <component :is="currentComponent" class="app-view" />
-    </main>
+    <component :is="activeComponent" />
+    <nav class="page-switcher">
+      <button
+        type="button"
+        :class="{ active: activePage === 'sessions' }"
+        @click="navigate('sessions')"
+      >
+        Session Manager
+      </button>
+      <button
+        type="button"
+        :class="{ active: activePage === 'timeline' }"
+        @click="navigate('timeline')"
+      >
+        Timeline
+      </button>
+    </nav>
   </div>
 </template>
 
@@ -39,7 +44,7 @@ export default {
     };
   },
   computed: {
-    currentComponent() {
+    activeComponent() {
       return this.activePage === 'timeline' ? TimelineView : CaptureSessionsView;
     },
   },
@@ -54,9 +59,9 @@ export default {
       if (typeof window === 'undefined') {
         return;
       }
-      const desiredHash = this.activePage === 'timeline' ? '#timeline' : '';
-      if (window.location.hash !== desiredHash) {
-        window.location.hash = desiredHash;
+      const desired = this.activePage === 'timeline' ? '#timeline' : '#sessions';
+      if (window.location.hash !== desired) {
+        window.location.hash = desired;
       }
     },
     handleHashChange() {
@@ -87,67 +92,42 @@ export default {
 
 <style>
 #app {
-  height: 100vh;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  background-color: #f5f5f7;
-  color: #1f2933;
+  background: #f3f4f6;
 }
 
-.app-header {
+.page-switcher {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.5rem;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #1f2937, #111827);
-  color: #f9fafb;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  gap: 0.5rem;
+  z-index: 20;
 }
 
-.app-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin: 0;
-}
-
-.app-nav {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.nav-link {
-  color: #e5e7eb;
-  text-decoration: none;
-  padding: 0.45rem 0.9rem;
-  border-radius: 999px;
-  transition: background-color 0.2s ease, color 0.2s ease;
-  font-weight: 500;
+.page-switcher button {
   border: none;
-  background: transparent;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.68);
+  color: #f8fafc;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.8rem;
   cursor: pointer;
+  transition: background-color 0.2s ease;
 }
 
-.nav-link:hover {
-  background-color: rgba(255, 255, 255, 0.15);
+.page-switcher button:hover {
+  background: rgba(59, 130, 246, 0.85);
 }
 
-.nav-link.active {
-  background-color: #f9fafb;
-  color: #111827;
+.page-switcher button.active {
+  background: #2563eb;
 }
 
-.app-main {
-  flex: 1 1 auto;
-  padding: 1.25rem;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-}
-
-.app-view {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
+.page-switcher button:focus {
+  outline: 2px solid rgba(59, 130, 246, 0.65);
+  outline-offset: 2px;
 }
 </style>
