@@ -404,17 +404,120 @@ function normalizeSession(payload) {
   };
 }
 
+function extractImageTimestamps(images) {
+  if (!Array.isArray(images)) {
+    return [];
+  }
+  return images
+    .map((image) => {
+      if (!image || !image.capturedAt) {
+        return null;
+      }
+      const date = image.capturedAt instanceof Date ? image.capturedAt : new Date(image.capturedAt);
+      const time = date.getTime();
+      return Number.isNaN(time) ? null : time;
+    })
+    .filter((time) => typeof time === 'number');
+}
+
+function resolveSessionBounds(session) {
+  const imageTimes = extractImageTimestamps(session.images);
+
+  let startMs = typeof session.startMs === 'number' && Number.isFinite(session.startMs) ? session.startMs : null;
+  let endMs = typeof session.endMs === 'number' && Number.isFinite(session.endMs) ? session.endMs : null;
+
+  if (imageTimes.length > 0) {
+    if (startMs === null) {
+      startMs = Math.min(...imageTimes);
+    }
+    if (endMs === null) {
+      endMs = Math.max(...imageTimes);
+    }
+  }
+
+  if (startMs === null && endMs !== null) {
+    startMs = endMs;
+  }
+
+  if (endMs === null && startMs !== null) {
+    endMs = startMs;
+  }
+
+  if (startMs !== null && endMs !== null && endMs < startMs) {
+    endMs = startMs;
+  }
+
+  return {
+    startMs,
+    endMs,
+  };
+}
+
+function enhanceSessionForTimeline(session) {
+  const bounds = resolveSessionBounds(session);
+  return {
+    ...session,
+    layoutStartMs: bounds.startMs,
+    layoutEndMs: bounds.endMs,
+  };
+}
+
+function sessionOverlapsRange(session, rangeStartMs, rangeEndMs) {
+  if (typeof rangeStartMs !== 'number' || typeof rangeEndMs !== 'number') {
+    return true;
+  }
+
+  const startMs =
+    typeof session.layoutStartMs === 'number' && Number.isFinite(session.layoutStartMs)
+      ? session.layoutStartMs
+      : typeof session.startMs === 'number' && Number.isFinite(session.startMs)
+        ? session.startMs
+        : null;
+  const endMs =
+    typeof session.layoutEndMs === 'number' && Number.isFinite(session.layoutEndMs)
+      ? session.layoutEndMs
+      : typeof session.endMs === 'number' && Number.isFinite(session.endMs)
+        ? session.endMs
+        : null;
+
+  const resolvedStart = startMs ?? endMs;
+  const resolvedEnd = endMs ?? startMs;
+
+  if (resolvedStart === null || resolvedEnd === null) {
+    return false;
+  }
+
+  return resolvedEnd >= rangeStartMs && resolvedStart <= rangeEndMs;
+}
+
 function assignSessionRows(sessions) {
   const rowEndTimes = [];
   return sessions.map((session) => {
-    const startMs = session.startMs ?? 0;
-    const endMs = session.endMs && session.endMs > startMs ? session.endMs : startMs + 60_000;
+    const startMs =
+      typeof session.layoutStartMs === 'number' && Number.isFinite(session.layoutStartMs)
+        ? session.layoutStartMs
+        : typeof session.layoutEndMs === 'number' && Number.isFinite(session.layoutEndMs)
+          ? session.layoutEndMs
+          : 0;
+
+    const rawEndMs =
+      typeof session.layoutEndMs === 'number' && Number.isFinite(session.layoutEndMs)
+        ? session.layoutEndMs
+        : startMs + 60_000;
+    const endMs = rawEndMs > startMs ? rawEndMs : startMs + 60_000;
+
     let rowIndex = 0;
     while (rowEndTimes[rowIndex] && rowEndTimes[rowIndex] > startMs) {
       rowIndex += 1;
     }
     rowEndTimes[rowIndex] = endMs;
-    return { ...session, rowIndex };
+
+    return {
+      ...session,
+      layoutStartMs: startMs,
+      layoutEndMs: endMs,
+      rowIndex,
+    };
   });
 }
 
@@ -487,13 +590,34 @@ export default {
       return this.sessions;
     },
     imageMarkers() {
-      return this.timelineSessions.flatMap((session) =>
-        session.images.map((image) => ({
-          key: `${session.id}-${image.id}`,
-          session,
-          image,
-        })),
-      );
+      const rangeStart = this.rangeStartDate?.getTime();
+      const rangeEnd = this.rangeEndDate?.getTime();
+
+      return this.timelineSessions.flatMap((session) => {
+        const sessionFallback =
+          typeof session.layoutStartMs === 'number' && Number.isFinite(session.layoutStartMs)
+            ? session.layoutStartMs
+            : typeof rangeStart === 'number'
+              ? rangeStart
+              : 0;
+
+        return session.images
+          .map((image) => {
+            const timestamp = image.capturedAt ? image.capturedAt.getTime() : sessionFallback;
+            return {
+              key: `${session.id}-${image.id}`,
+              session,
+              image,
+              timestamp,
+            };
+          })
+          .filter((marker) => {
+            if (typeof rangeStart !== 'number' || typeof rangeEnd !== 'number') {
+              return true;
+            }
+            return marker.timestamp >= rangeStart && marker.timestamp <= rangeEnd;
+          });
+      });
     },
     axisTicks() {
       const ticks = [];
@@ -668,8 +792,15 @@ export default {
 
       try {
         const results = await fetchSessionsWithinRange(startDate.toISOString(), endDate.toISOString());
-        const normalized = results.map((session) => normalizeSession(session));
-        const ordered = normalized.sort((a, b) => (a.startMs ?? 0) - (b.startMs ?? 0));
+        const normalized = results.map((session) => enhanceSessionForTimeline(normalizeSession(session)));
+        const rangeStartMs = startDate.getTime();
+        const rangeEndMs = endDate.getTime();
+        const filtered = normalized.filter((session) => sessionOverlapsRange(session, rangeStartMs, rangeEndMs));
+        const ordered = filtered.sort((a, b) => {
+          const aStart = typeof a.layoutStartMs === 'number' ? a.layoutStartMs : a.startMs ?? 0;
+          const bStart = typeof b.layoutStartMs === 'number' ? b.layoutStartMs : b.startMs ?? 0;
+          return aStart - bStart;
+        });
         const withRows = assignSessionRows(ordered);
         this.sessions = withRows;
 
@@ -757,10 +888,21 @@ export default {
       return (clamped / duration) * this.timelineWidth;
     },
     getSessionBlockStyle(session) {
-      const start = session.startMs ?? this.rangeStartDate?.getTime() ?? 0;
-      const end = session.endMs ?? start;
-      const left = this.getPositionForTime(start);
-      const right = this.getPositionForTime(end);
+      const fallback = this.rangeStartDate?.getTime() ?? 0;
+      const start = typeof session.layoutStartMs === 'number' && Number.isFinite(session.layoutStartMs)
+        ? session.layoutStartMs
+        : typeof session.startMs === 'number' && Number.isFinite(session.startMs)
+          ? session.startMs
+          : fallback;
+      const end = typeof session.layoutEndMs === 'number' && Number.isFinite(session.layoutEndMs)
+        ? session.layoutEndMs
+        : typeof session.endMs === 'number' && Number.isFinite(session.endMs)
+          ? session.endMs
+          : start;
+      const clampedStart = Math.min(start, end);
+      const clampedEnd = Math.max(start, end);
+      const left = this.getPositionForTime(clampedStart);
+      const right = this.getPositionForTime(clampedEnd);
       const width = Math.max(right - left, 6);
       return {
         left: `${left}px`,
@@ -769,7 +911,15 @@ export default {
       };
     },
     getImageMarkerStyle(marker) {
-      const time = marker.image.capturedAt ? marker.image.capturedAt.getTime() : marker.session.startMs ?? this.rangeStartDate?.getTime() ?? 0;
+      const fallback =
+        (marker.session
+          && typeof marker.session.layoutStartMs === 'number'
+          && Number.isFinite(marker.session.layoutStartMs)
+          ? marker.session.layoutStartMs
+          : this.rangeStartDate?.getTime()) ?? 0;
+      const time = typeof marker.timestamp === 'number' && Number.isFinite(marker.timestamp)
+        ? marker.timestamp
+        : fallback;
       const position = this.getPositionForTime(time);
       const top = ROW_VERTICAL_PADDING + marker.session.rowIndex * this.rowHeight - 18;
       return {

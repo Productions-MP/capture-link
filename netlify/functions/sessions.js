@@ -8,6 +8,28 @@ function parseDate(value) {
     return null;
   }
 
+  if (typeof value === 'object' && !(value instanceof Date)) {
+    if (value.$date) {
+      return parseDate(value.$date);
+    }
+
+    if (value.$numberLong || value.$numberInt) {
+      const numericValue = Number(value.$numberLong ?? value.$numberInt);
+      if (Number.isFinite(numericValue)) {
+        return parseDate(numericValue);
+      }
+    }
+
+    if (typeof value.toDate === 'function') {
+      try {
+        const converted = value.toDate();
+        return converted instanceof Date && !Number.isNaN(converted.getTime()) ? converted : null;
+      } catch (error) {
+        // fall through to final null return
+      }
+    }
+  }
+
   if (value instanceof Date) {
     return value;
   }
