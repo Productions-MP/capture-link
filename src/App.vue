@@ -1,184 +1,90 @@
 <template>
-  <DialogLogin v-if="this.showLogIn" @authenticated="handleGotSession" />
-
-  <DialogAddIdentity v-if="this.showAddIdentity" :filterObject="this.identitiesFilterObject"
-    @identity-created="handleIdentityCreated" @hide-add-identity="this.showAddIdentity = false"
-    @session-expired="handleSessionExpired" />
-
-  <div class="top-section">
-    <identity-search :identities="identities" :filterObject="identitiesFilterObject"
-      :isSessionActive="this.isSessionActive" @add-identity="addIdentityToActive"
-      @add-all-from-filter="addAllFromFilter" />
-  </div>
-
-  <div class="bottom-section">
-    <session-manager :activeIdentities="activeIdentities" :isSessionActive="this.isSessionActive" :isDisabled="this.isDisabled"
-      @start-session="startSession" @end-session="endSession" @remove-identity="removeIdentityFromActive"
-      @clear-identities="clearIdentitiesFromActive" @show-add-identity="this.showAddIdentity = true" />
+  <div id="app">
+    <component :is="activeComponent" />
+    <nav class="page-switcher">
+      <button
+        type="button"
+        :class="{ active: activePage === 'sessions' }"
+        @click="navigate('sessions')"
+      >
+        Session Manager
+      </button>
+      <button
+        type="button"
+        :class="{ active: activePage === 'timeline' }"
+        @click="navigate('timeline')"
+      >
+        Timeline
+      </button>
+    </nav>
   </div>
 </template>
 
 <script>
-import {
-  hasActiveSession,
-  fetchIdentities,
-  startCaptureLinkSession,
-  endCaptureLinkSession,
-  getObjectArrayFilterObject,
-  clearSessionCookies,
-  UnauthorizedError
-} from '@/utils/app'
-import DialogLogin from '@/components/DialogLogin.vue';
-import DialogAddIdentity from '@/components/DialogAddIdentity.vue';
-import IdentitySearch from "./components/IdentitySearch.vue";
-import SessionManager from "./components/SessionManager.vue";
+import CaptureSessionsView from '@/views/CaptureSessionsView.vue';
+import TimelineView from '@/views/TimelineView.vue';
 
+function getHashPage() {
+  if (typeof window === 'undefined') {
+    return 'sessions';
+  }
+  const raw = window.location.hash ? window.location.hash.replace('#', '').toLowerCase() : '';
+  return raw === 'timeline' ? 'timeline' : 'sessions';
+}
 
 export default {
+  name: 'App',
+  components: {
+    CaptureSessionsView,
+    TimelineView,
+  },
   data() {
     return {
-      showLogIn: !hasActiveSession(),
-      showAddIdentity: false,
-      identities: [],
-      activeIdentities: [],
-      isSessionActive: false,
-      isDisabled: false,
-      sessionId: null,
+      activePage: getHashPage(),
     };
   },
-  async created() {
-    await this.loadIdentities()
-  },
-  components: {
-    IdentitySearch,
-    SessionManager,
-    DialogLogin,
-    DialogAddIdentity
-  },
   computed: {
-    identitiesFilterObject() {
-      const allKnownIdentities = [
-        ...this.identities,
-        ...this.activeIdentities
-      ]
-
-      return getObjectArrayFilterObject(allKnownIdentities)
-    }
+    activeComponent() {
+      return this.activePage === 'timeline' ? TimelineView : CaptureSessionsView;
+    },
   },
   methods: {
-    async loadIdentities() {
-      if (!hasActiveSession()) {
-        this.showLogIn = true
-        return
+    navigate(page) {
+      if (page !== 'sessions' && page !== 'timeline') {
+        return;
       }
-
-      try {
-        this.identities = await fetchIdentities()
-      } catch (error) {
-        this.handlePotentialUnauthorized(error)
+      this.activePage = page;
+    },
+    syncHash() {
+      if (typeof window === 'undefined') {
+        return;
+      }
+      const desired = this.activePage === 'timeline' ? '#timeline' : '#sessions';
+      if (window.location.hash !== desired) {
+        window.location.hash = desired;
       }
     },
-    getObjectArrayFilterObject,
-    async handleGotSession() {
-      this.showLogIn = false
-      await this.loadIdentities()
-    },
-    addIdentityToActive(identity) {
-      if (!this.isSessionActive) {
-        const index = this.identities.findIndex(
-          (aI) => aI.id === identity.id
-        );
-        if (index !== -1) {
-          this.activeIdentities.push(this.identities.splice(index, 1)[0]);
-        }
+    handleHashChange() {
+      const page = getHashPage();
+      if (page !== this.activePage) {
+        this.activePage = page;
       }
     },
-    removeIdentityFromActive(identity) {
-      if (!this.isSessionActive) {
-        const index = this.activeIdentities.findIndex(
-          (aI) => aI.id === identity.id
-        );
-        if (index !== -1) {
-          this.identities.push(this.activeIdentities.splice(index, 1)[0]);
-        }
-      }
+  },
+  watch: {
+    activePage() {
+      this.syncHash();
     },
-    addAllFromFilter(filteredIdentities) {
-      if (!this.isSessionActive) {
-        const toAdd = [...filteredIdentities];
-        toAdd.forEach(identity => {
-          const index = this.identities.findIndex(
-            (aI) => aI.id === identity.id
-          );
-          if (index !== -1) {
-            this.activeIdentities.push(this.identities.splice(index, 1)[0]);
-          }
-        });
-      }
-    },
-    clearIdentitiesFromActive() {
-      if (!this.isSessionActive) {
-        this.identities.push(...this.activeIdentities);
-        this.activeIdentities = [];
-      }
-    },
-    async startSession() {
-      if (this.activeIdentities.length === 0) {
-        return
-      }
-
-      this.isDisabled = true
-      try {
-        this.sessionId = await startCaptureLinkSession(this.activeIdentities)
-        if (this.sessionId) {
-          this.isSessionActive = true
-        }
-      } catch (error) {
-        this.handlePotentialUnauthorized(error)
-      } finally {
-        this.isDisabled = false
-      }
-    },
-    async endSession() {
-      if (!this.sessionId) {
-        return
-      }
-
-      this.isDisabled = true
-      try {
-        const isSuccess = await endCaptureLinkSession(this.sessionId)
-        if (isSuccess) {
-          this.sessionId = null
-          this.isSessionActive = false
-        }
-      } catch (error) {
-        this.handlePotentialUnauthorized(error)
-      } finally {
-        this.isDisabled = false
-      }
-    },
-    handleIdentityCreated(identity) {
-      this.activeIdentities.push(identity)
-      this.showAddIdentity = false
-    },
-    handlePotentialUnauthorized(error) {
-      if (error instanceof UnauthorizedError) {
-        this.handleSessionExpired()
-      } else {
-        console.error(error)
-      }
-    },
-    handleSessionExpired() {
-      clearSessionCookies()
-      this.showLogIn = true
-      this.showAddIdentity = false
-      this.isSessionActive = false
-      this.isDisabled = false
-      this.sessionId = null
-      if (this.activeIdentities.length > 0) {
-        this.identities = [...this.activeIdentities, ...this.identities]
-        this.activeIdentities = []
-      }
+  },
+  mounted() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('hashchange', this.handleHashChange);
+      this.syncHash();
+    }
+  },
+  beforeUnmount() {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('hashchange', this.handleHashChange);
     }
   },
 };
@@ -186,21 +92,42 @@ export default {
 
 <style>
 #app {
-  height: 100vh;
-  font-family: sans-serif;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: 1%;
-  padding: 0.7rem;
+  background: #f3f4f6;
 }
 
-.top-section {
-  height: 54.5%;
-  flex: 0 0 auto;
+.page-switcher {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.5rem;
+  display: flex;
+  gap: 0.5rem;
+  z-index: 20;
 }
 
-.bottom-section {
-  height: 44.5%;
-  flex: 0 0 auto;
+.page-switcher button {
+  border: none;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.68);
+  color: #f8fafc;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.page-switcher button:hover {
+  background: rgba(59, 130, 246, 0.85);
+}
+
+.page-switcher button.active {
+  background: #2563eb;
+}
+
+.page-switcher button:focus {
+  outline: 2px solid rgba(59, 130, 246, 0.65);
+  outline-offset: 2px;
 }
 </style>

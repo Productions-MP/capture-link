@@ -1,4 +1,11 @@
-const { MongoClient } = require('mongodb');
+let MongoClient;
+try {
+  ({ MongoClient } = require('mongodb'));
+} catch (error) {
+  throw new Error(
+    'The "mongodb" package is required to run Netlify functions. Install it in the environment before invoking any data APIs.',
+  );
+}
 
 let cachedClient = null;
 let cachedDb = null;

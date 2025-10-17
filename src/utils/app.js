@@ -217,6 +217,49 @@ export async function endCaptureLinkSession(sessionId) {
   return Boolean(payload.success);
 }
 
+export async function fetchSessionsWithinRange(startIso, endIso) {
+  if (!startIso || !endIso) {
+    throw new Error("Start and end timestamps are required");
+  }
+
+  const params = new URLSearchParams({ start: startIso, end: endIso });
+  const response = await requestWithAuthentication(`sessions?${params.toString()}`, {
+    method: "GET",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch sessions: ${response.status}`);
+  }
+
+  const payload = await response.json();
+  return Array.isArray(payload.sessions) ? payload.sessions : [];
+}
+
+export async function updateSessionAndImages(sessionId, sessionPayload, imageUpdates = []) {
+  if (!sessionId) {
+    throw new Error("A sessionId is required to update a session");
+  }
+
+  const response = await requestWithAuthentication("sessions", {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      sessionId,
+      session: sessionPayload ?? {},
+      imageUpdates: Array.isArray(imageUpdates) ? imageUpdates : [],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to update session: ${response.status}`);
+  }
+
+  const payload = await response.json();
+  return payload;
+}
+
 // GUI Helpers
 function getUniqueKeys(objectArray) {
   const keys = [];
